@@ -1,0 +1,1483 @@
+<!DOCTYPE html>
+<html lang="es-CL">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fibonacci Clinic — Gestión</title>
+<style>
+  :root{
+    --verde-salvia:#66795F;
+    --verde-salvia-dark:#57684F;
+    --verde-bosque:#3F4C3B;
+    --crema:#F8F6F1;
+    --blanco:#FFFFFF;
+    --texto:#2A322B;
+    --texto-suave:#6B7268;
+    --terracota:#B5654A;
+    --terracota-bg:#FBEDE8;
+    --oliva:#8FA283;
+    --oliva-bg:#EEF3EB;
+    --borde:#E2E0D8;
+    --font-serif: Georgia, 'Times New Roman', Times, serif;
+    --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ height:100%; }
+  body{
+    margin:0; font-family:var(--font-sans); color:var(--texto); background:var(--crema);
+    display:flex; min-height:100vh;
+  }
+  a{ color:inherit; }
+
+  /* Sidebar */
+  .sidebar{
+    width:230px; flex-shrink:0; background:var(--verde-salvia); color:var(--blanco);
+    display:flex; flex-direction:column; padding:28px 0 16px;
+  }
+  .brand{ padding:0 22px 26px; border-bottom:1px solid rgba(255,255,255,.18); margin-bottom:18px; display:flex; align-items:center; gap:10px; }
+  .brand svg{ flex-shrink:0; opacity:.95; }
+  .brand-text-title{ font-family:var(--font-serif); font-size:19px; letter-spacing:2px; line-height:1.1; }
+  .brand-text-sub{ font-family:var(--font-sans); font-size:10px; letter-spacing:3px; opacity:.85; margin-top:3px; }
+  .nav{ list-style:none; margin:0; padding:0; flex:1; }
+  .nav-item{
+    display:flex; align-items:center; gap:10px; padding:12px 22px; font-size:14px; cursor:pointer;
+    color:rgba(255,255,255,.85); border-left:3px solid transparent; transition:background .12s;
+  }
+  .nav-item:hover{ background:rgba(255,255,255,.08); }
+  .nav-item.active{ background:rgba(255,255,255,.14); border-left-color:var(--blanco); color:var(--blanco); font-weight:600; }
+  .nav-icon{ width:16px; text-align:center; }
+  .sidebar-footer{ padding:14px 22px 0; font-size:11px; color:rgba(255,255,255,.55); border-top:1px solid rgba(255,255,255,.18); margin-top:10px; }
+
+  /* Main */
+  .main{ flex:1; min-width:0; display:flex; flex-direction:column; }
+  .topbar{
+    display:flex; align-items:center; justify-content:space-between; padding:16px 30px;
+    background:var(--blanco); border-bottom:1px solid var(--borde);
+  }
+  .topbar h1{ font-family:var(--font-serif); font-size:22px; margin:0; letter-spacing:.5px; }
+  .topbar-actions{ display:flex; gap:10px; }
+  .content{ padding:26px 30px 40px; flex:1; overflow-y:auto; }
+
+  /* Buttons */
+  .btn{
+    font-family:var(--font-sans); font-size:13px; padding:9px 16px; border-radius:6px; border:1px solid transparent;
+    cursor:pointer; display:inline-flex; align-items:center; gap:6px; font-weight:600; transition:opacity .12s, background .12s;
+  }
+  .btn:active{ transform:translateY(1px); }
+  .btn-primary{ background:var(--verde-salvia); color:#fff; }
+  .btn-primary:hover{ background:var(--verde-salvia-dark); }
+  .btn-secondary{ background:var(--blanco); color:var(--verde-bosque); border-color:var(--borde); }
+  .btn-secondary:hover{ background:#f1f0ea; }
+  .btn-danger{ background:var(--blanco); color:var(--terracota); border-color:#e7cdc3; }
+  .btn-danger:hover{ background:var(--terracota-bg); }
+  .btn-sm{ padding:5px 10px; font-size:12px; }
+  .btn:disabled{ opacity:.45; cursor:not-allowed; }
+
+  /* Cards */
+  .cards-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:16px; margin-bottom:24px; }
+  .card{ background:var(--blanco); border:1px solid var(--borde); border-radius:10px; padding:18px 20px; }
+  .card-label{ font-size:12px; text-transform:uppercase; letter-spacing:1px; color:var(--texto-suave); margin-bottom:8px; }
+  .card-value{ font-family:var(--font-serif); font-size:28px; color:var(--verde-bosque); }
+  .card-value.negative{ color:var(--terracota); }
+
+  .panel{ background:var(--blanco); border:1px solid var(--borde); border-radius:10px; padding:20px 22px; margin-bottom:22px; }
+  .panel-title{ font-family:var(--font-serif); font-size:17px; margin:0 0 14px; color:var(--verde-bosque); }
+  .panel-header{ display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
+  .panel-header .panel-title{ margin:0; }
+
+  /* Table */
+  .table-wrap{ overflow-x:auto; }
+  table{ width:100%; border-collapse:collapse; font-size:13px; }
+  th{ text-align:left; padding:9px 12px; font-size:11px; text-transform:uppercase; letter-spacing:.6px; color:var(--texto-suave); border-bottom:2px solid var(--borde); white-space:nowrap; }
+  td{ padding:10px 12px; border-bottom:1px solid var(--borde); vertical-align:middle; }
+  tr:last-child td{ border-bottom:none; }
+  tbody tr:hover{ background:#faf9f5; }
+  td.num, th.num{ text-align:right; }
+  .row-actions{ display:flex; gap:6px; justify-content:flex-end; }
+  .row-warning{ background:var(--terracota-bg); }
+  .row-warning:hover{ background:#f7e2da; }
+
+  /* Badges */
+  .badge{ display:inline-block; padding:3px 9px; border-radius:20px; font-size:11px; font-weight:600; letter-spacing:.3px; }
+  .badge-warning{ background:var(--terracota-bg); color:var(--terracota); }
+  .badge-success{ background:var(--oliva-bg); color:#4d6142; }
+  .badge-muted{ background:#eee; color:#777; }
+  .badge-info{ background:#e8eef7; color:#42618a; }
+
+  .alert{ display:flex; align-items:center; gap:10px; background:var(--terracota-bg); color:#8a4531; border:1px solid #eecdc2; padding:12px 16px; border-radius:8px; margin-bottom:20px; font-size:13.5px; }
+  .alert strong{ font-weight:700; }
+
+  .empty-state{ text-align:center; padding:36px 20px; color:var(--texto-suave); font-size:13.5px; }
+
+  /* Tabs */
+  .tabs{ display:flex; gap:4px; border-bottom:1px solid var(--borde); margin-bottom:18px; }
+  .tab{ padding:9px 16px; font-size:13px; cursor:pointer; color:var(--texto-suave); border-bottom:2px solid transparent; font-weight:600; }
+  .tab.active{ color:var(--verde-bosque); border-bottom-color:var(--verde-salvia); }
+
+  /* Forms */
+  .form-group{ margin-bottom:14px; }
+  .form-row{ display:flex; gap:14px; }
+  .form-row .form-group{ flex:1; }
+  label{ display:block; font-size:11.5px; text-transform:uppercase; letter-spacing:.5px; color:var(--texto-suave); margin-bottom:5px; font-weight:600; }
+  input[type=text], input[type=number], input[type=date], input[type=time], input[type=search],
+  select, textarea{
+    width:100%; padding:9px 11px; border:1px solid var(--borde); border-radius:6px; font-size:13.5px;
+    font-family:var(--font-sans); background:#fff; color:var(--texto);
+  }
+  textarea{ resize:vertical; min-height:60px; }
+  input:focus, select:focus, textarea:focus{ outline:none; border-color:var(--verde-salvia); box-shadow:0 0 0 3px rgba(102,121,95,.15); }
+  .hint{ font-size:11.5px; color:var(--texto-suave); margin-top:4px; }
+  .search-input{ max-width:260px; }
+
+  .dyn-row{ display:flex; gap:8px; align-items:flex-end; margin-bottom:8px; }
+  .dyn-row .form-group{ margin-bottom:0; flex:1; }
+  .dyn-row .qty{ max-width:100px; }
+  .dyn-remove{ height:38px; }
+  .dyn-add{ margin-top:4px; }
+
+  .preview-box{ background:var(--crema); border:1px dashed var(--borde); border-radius:8px; padding:12px 14px; font-size:13px; margin-top:6px; }
+  .preview-box .pv-row{ display:flex; justify-content:space-between; padding:3px 0; }
+  .preview-box .pv-row.total{ font-weight:700; border-top:1px solid var(--borde); margin-top:6px; padding-top:8px; }
+  .pv-pos{ color:#4d6142; }
+  .pv-neg{ color:var(--terracota); }
+
+  /* Modal */
+  .modal-overlay{
+    position:fixed; inset:0; background:rgba(42,50,43,.45); display:flex; align-items:center; justify-content:center;
+    z-index:100; padding:20px;
+  }
+  .modal-overlay.hidden{ display:none; }
+  .modal{ background:#fff; border-radius:12px; width:100%; max-width:520px; max-height:88vh; display:flex; flex-direction:column; box-shadow:0 20px 60px rgba(0,0,0,.25); }
+  .modal.wide{ max-width:680px; }
+  .modal-header{ display:flex; align-items:center; justify-content:space-between; padding:18px 22px; border-bottom:1px solid var(--borde); }
+  .modal-header h3{ font-family:var(--font-serif); margin:0; font-size:18px; color:var(--verde-bosque); }
+  .modal-close-btn{ background:none; border:none; font-size:20px; cursor:pointer; color:var(--texto-suave); line-height:1; }
+  .modal-body{ padding:20px 22px; overflow-y:auto; }
+  .modal-footer{ display:flex; justify-content:flex-end; gap:10px; padding:16px 22px; border-top:1px solid var(--borde); }
+
+  /* Bar chart */
+  .bar-chart{ display:flex; align-items:flex-end; gap:6px; height:170px; padding:10px 4px 0; overflow-x:auto; }
+  .bar-col{ display:flex; flex-direction:column; align-items:center; justify-content:flex-end; min-width:26px; flex:1; height:100%; }
+  .bar{ width:100%; max-width:34px; background:var(--verde-salvia); border-radius:4px 4px 0 0; transition:height .2s; }
+  .bar-col .bar-val{ font-size:10px; color:var(--texto-suave); margin-bottom:3px; }
+  .bar-col .bar-lbl{ font-size:10px; color:var(--texto-suave); margin-top:6px; white-space:nowrap; transform-origin:top center; }
+
+  .week-grid{ display:grid; grid-template-columns:repeat(7,1fr); gap:10px; }
+  .week-day{ background:#fff; border:1px solid var(--borde); border-radius:8px; padding:10px; min-height:120px; }
+  .week-day-head{ font-size:11px; text-transform:uppercase; letter-spacing:.5px; color:var(--texto-suave); margin-bottom:8px; font-weight:700; }
+  .week-day-head.today{ color:var(--verde-salvia); }
+  .week-item{ background:var(--crema); border-radius:6px; padding:6px 8px; margin-bottom:6px; font-size:11.5px; cursor:pointer; }
+  .week-item .wi-hora{ font-weight:700; }
+
+  .agenda-item{ display:flex; align-items:center; gap:14px; padding:11px 4px; border-bottom:1px solid var(--borde); }
+  .agenda-item:last-child{ border-bottom:none; }
+  .agenda-hora{ font-family:var(--font-serif); font-size:16px; color:var(--verde-bosque); width:64px; flex-shrink:0; }
+  .agenda-info{ flex:1; min-width:0; }
+  .agenda-info .ai-paciente{ font-weight:700; font-size:13.5px; }
+  .agenda-info .ai-detalle{ font-size:12px; color:var(--texto-suave); }
+  .agenda-actions{ display:flex; gap:6px; align-items:center; flex-shrink:0; }
+
+  .hidden{ display:none !important; }
+  .text-suave{ color:var(--texto-suave); }
+  ::placeholder{ color:#aeb0a8; }
+</style>
+</head>
+<body>
+
+<nav class="sidebar">
+  <div class="brand">
+    <svg width="34" height="34" viewBox="0 0 100 100" fill="none" stroke="#fff" stroke-width="4">
+      <path d="M 68 18 A 32 32 0 1 0 68 82 A 21 21 0 1 1 68 40 A 10.5 10.5 0 1 0 68 61"/>
+    </svg>
+    <div>
+      <div class="brand-text-title">FIBONACCI</div>
+      <div class="brand-text-sub">CLINIC</div>
+    </div>
+  </div>
+  <ul class="nav" id="nav-list">
+    <li class="nav-item" data-action="nav" data-view="dashboard"><span class="nav-icon">&#9679;</span> Dashboard</li>
+    <li class="nav-item" data-action="nav" data-view="inventario"><span class="nav-icon">&#128230;</span> Inventario</li>
+    <li class="nav-item" data-action="nav" data-view="tratamientos"><span class="nav-icon">&#128138;</span> Tratamientos</li>
+    <li class="nav-item" data-action="nav" data-view="ventas"><span class="nav-icon">&#128176;</span> Ventas</li>
+    <li class="nav-item" data-action="nav" data-view="reservas"><span class="nav-icon">&#128197;</span> Reservas</li>
+  </ul>
+  <div class="sidebar-footer">Datos guardados localmente<br>en este navegador.</div>
+</nav>
+
+<div class="main">
+  <div class="topbar">
+    <h1 id="view-title">Dashboard</h1>
+    <div class="topbar-actions">
+      <button class="btn btn-secondary" data-action="export-backup">&#128229; Exportar respaldo</button>
+      <button class="btn btn-secondary" data-action="import-backup">&#128228; Importar respaldo</button>
+    </div>
+  </div>
+  <div class="content" id="main-content"></div>
+</div>
+
+<input type="file" id="import-file-input" accept="application/json" class="hidden">
+
+<div class="modal-overlay hidden" id="modal-overlay">
+  <div class="modal" id="modal-box">
+    <div class="modal-header">
+      <h3 id="modal-title">Título</h3>
+      <button class="modal-close-btn" data-action="modal-close">&times;</button>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+  </div>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* ============================= DB LAYER ============================= */
+const DB_KEY = 'fibonacci_clinic_db_v1';
+const CATEGORIAS_INSUMO = ['Inyectables','Descartables','Cosméticos','Aparatología','Insumos generales','Otros'];
+const METODOS_PAGO = ['Efectivo','Débito','Crédito','Transferencia'];
+
+function defaultDB(){
+  return {
+    insumos: [],
+    movimientosInventario: [],
+    tratamientos: [],
+    pacientes: [],
+    reservas: [],
+    ventas: [],
+    config: { nombreClinica: 'Fibonacci Clinic', version: 1 }
+  };
+}
+
+let db = null;
+
+function loadDB(){
+  let parsed = null;
+  try{
+    const raw = localStorage.getItem(DB_KEY);
+    parsed = raw ? JSON.parse(raw) : null;
+  }catch(e){
+    console.error('No se pudo leer la base de datos local, se inicia vacía.', e);
+    parsed = null;
+  }
+  const def = defaultDB();
+  db = parsed && typeof parsed === 'object' ? parsed : def;
+  for(const k in def){ if(!(k in db)) db[k] = def[k]; }
+}
+
+function saveDB(){
+  localStorage.setItem(DB_KEY, JSON.stringify(db));
+}
+
+function uid(){
+  return 'id_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,9);
+}
+
+/* ============================= UTILS ============================= */
+function formatCLP(n){
+  n = Number(n) || 0;
+  return new Intl.NumberFormat('es-CL', { style:'currency', currency:'CLP', maximumFractionDigits:0 }).format(n);
+}
+function formatNum(n){ return new Intl.NumberFormat('es-CL').format(Number(n)||0); }
+
+function escapeHtml(str){
+  if(str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+function todayLocalISO(){ return toISODateLocal(new Date()); }
+function toISODateLocal(d){
+  const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), day=String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
+function fromISODateLocal(s){
+  const [y,m,d] = s.split('-').map(Number);
+  return new Date(y, m-1, d);
+}
+function addDays(d,n){ const r = new Date(d); r.setDate(r.getDate()+n); return r; }
+function startOfWeek(d){ const r = new Date(d); const day=(r.getDay()+6)%7; r.setDate(r.getDate()-day); r.setHours(0,0,0,0); return r; }
+function formatDateShort(d){ return d.toLocaleDateString('es-CL',{ day:'2-digit', month:'2-digit' }); }
+function formatDateLong(d){ return d.toLocaleDateString('es-CL',{ weekday:'long', day:'2-digit', month:'long', year:'numeric' }); }
+function weekdayShort(d){ return d.toLocaleDateString('es-CL',{ weekday:'short' }).replace('.',''); }
+
+function byId(arr,id){ return (arr||[]).find(x=>x.id===id); }
+
+/* ============================= APP STATE ============================= */
+const state = {
+  view: 'dashboard',
+  inventarioSearch: '',
+  tratamientosSortDir: 'desc',
+  reservasSub: 'agenda-dia',
+  agendaDiaFecha: todayLocalISO(),
+  agendaSemanaAnchor: startOfWeek(new Date()),
+  pacientesSearch: '',
+  ventasReportPeriod: 'semana',
+  ventasReportOffset: 0,
+  formDraft: null,        // datos temporales al abrir un sub-modal (nuevo paciente) desde otro form
+  returnAfterSave: null    // 'reserva' | 'venta'
+};
+
+/* ============================= RENDER ROOT ============================= */
+function render(){
+  document.querySelectorAll('.nav-item').forEach(el=>{
+    el.classList.toggle('active', el.dataset.view === state.view);
+  });
+  const titles = { dashboard:'Dashboard', inventario:'Inventario de insumos', tratamientos:'Costo de tratamientos', ventas:'Ventas', reservas:'Reserva de pacientes' };
+  document.getElementById('view-title').textContent = titles[state.view] || '';
+  const main = document.getElementById('main-content');
+  main.innerHTML = '';
+  if(state.view==='dashboard') renderDashboard(main);
+  else if(state.view==='inventario') renderInventario(main);
+  else if(state.view==='tratamientos') renderTratamientos(main);
+  else if(state.view==='ventas') renderVentas(main);
+  else if(state.view==='reservas') renderReservas(main);
+}
+
+/* ============================= DASHBOARD ============================= */
+function renderDashboard(main){
+  const today = todayLocalISO();
+  const ventasHoy = db.ventas.filter(v=>v.fecha===today);
+  const totalVentasHoy = ventasHoy.reduce((s,v)=>s+Number(v.montoTotal||0),0);
+  const reservasHoy = db.reservas.filter(r=>r.fecha===today && r.estado!=='cancelada').sort((a,b)=>a.hora.localeCompare(b.hora));
+  const bajosStock = db.insumos.filter(i=>Number(i.stockActual) < Number(i.stockMinimo));
+
+  let html = `<div class="cards-grid">
+    <div class="card"><div class="card-label">Ventas hoy</div><div class="card-value">${formatCLP(totalVentasHoy)}</div></div>
+    <div class="card"><div class="card-label">Reservas hoy</div><div class="card-value">${reservasHoy.length}</div></div>
+    <div class="card"><div class="card-label">Insumos bajo stock mínimo</div><div class="card-value ${bajosStock.length? 'negative':''}">${bajosStock.length}</div></div>
+    <div class="card"><div class="card-label">Tratamientos activos</div><div class="card-value">${db.tratamientos.length}</div></div>
+  </div>`;
+
+  if(bajosStock.length){
+    html += `<div class="alert"><strong>&#9888; ${bajosStock.length} insumo(s) bajo el stock mínimo:</strong> ${bajosStock.map(i=>escapeHtml(i.nombre)).join(', ')}</div>`;
+  }
+
+  html += `<div class="panel"><h2 class="panel-title">Agenda de hoy</h2>`;
+  if(!reservasHoy.length){
+    html += `<div class="empty-state">No hay reservas para hoy.</div>`;
+  }else{
+    html += reservasHoy.map(r=>agendaItemHtml(r)).join('');
+  }
+  html += `</div>`;
+
+  main.innerHTML = html;
+}
+
+/* ============================= INVENTARIO ============================= */
+function renderInventario(main){
+  const q = state.inventarioSearch.trim().toLowerCase();
+  const insumos = db.insumos
+    .filter(i => !q || i.nombre.toLowerCase().includes(q) || (i.categoria||'').toLowerCase().includes(q))
+    .sort((a,b)=>a.nombre.localeCompare(b.nombre));
+
+  let html = `<div class="panel">
+    <div class="panel-header">
+      <h2 class="panel-title">Insumos</h2>
+      <div style="display:flex; gap:10px;">
+        <input type="search" class="search-input" id="inventario-search" placeholder="Buscar insumo o categoría..." value="${escapeHtml(state.inventarioSearch)}">
+        <button class="btn btn-primary" data-action="insumo-new">+ Nuevo insumo</button>
+      </div>
+    </div>`;
+
+  if(!insumos.length){
+    html += `<div class="empty-state">No hay insumos registrados todavía.</div>`;
+  }else{
+    html += `<div class="table-wrap"><table><thead><tr>
+      <th>Nombre</th><th>Categoría</th><th>Unidad</th><th class="num">Stock actual</th><th class="num">Stock mínimo</th>
+      <th class="num">Costo unitario</th><th>Proveedor</th><th></th>
+    </tr></thead><tbody>`;
+    insumos.forEach(i=>{
+      const bajo = Number(i.stockActual) < Number(i.stockMinimo);
+      html += `<tr class="${bajo?'row-warning':''}">
+        <td>${escapeHtml(i.nombre)} ${bajo? '<span class="badge badge-warning">Stock bajo</span>':''}</td>
+        <td>${escapeHtml(i.categoria)}</td>
+        <td>${escapeHtml(i.unidadMedida)}</td>
+        <td class="num">${formatNum(i.stockActual)}</td>
+        <td class="num">${formatNum(i.stockMinimo)}</td>
+        <td class="num">${formatCLP(i.costoUnitario)}</td>
+        <td>${escapeHtml(i.proveedor)}</td>
+        <td><div class="row-actions">
+          <button class="btn btn-secondary btn-sm" data-action="insumo-adjust" data-id="${i.id}">Ajustar stock</button>
+          <button class="btn btn-secondary btn-sm" data-action="insumo-edit" data-id="${i.id}">Editar</button>
+          <button class="btn btn-danger btn-sm" data-action="insumo-delete" data-id="${i.id}">Eliminar</button>
+        </div></td>
+      </tr>`;
+    });
+    html += `</tbody></table></div>`;
+  }
+  html += `</div>`;
+
+  const movs = [...db.movimientosInventario].sort((a,b)=> b.fecha.localeCompare(a.fecha)).slice(0,60);
+  html += `<div class="panel"><h2 class="panel-title">Historial de movimientos</h2>`;
+  if(!movs.length){
+    html += `<div class="empty-state">Sin movimientos registrados.</div>`;
+  }else{
+    html += `<div class="table-wrap"><table><thead><tr>
+      <th>Fecha</th><th>Insumo</th><th>Tipo</th><th class="num">Cantidad</th><th>Motivo</th>
+    </tr></thead><tbody>`;
+    movs.forEach(m=>{
+      const insumo = byId(db.insumos, m.insumoId);
+      html += `<tr>
+        <td>${escapeHtml(m.fecha)}</td>
+        <td>${escapeHtml(insumo? insumo.nombre : '(insumo eliminado)')}</td>
+        <td><span class="badge ${m.tipo==='entrada'?'badge-success':'badge-warning'}">${m.tipo==='entrada'?'Entrada':'Salida'}</span></td>
+        <td class="num">${formatNum(m.cantidad)}</td>
+        <td>${escapeHtml(m.motivo)}</td>
+      </tr>`;
+    });
+    html += `</tbody></table></div>`;
+  }
+  html += `</div>`;
+
+  main.innerHTML = html;
+  document.getElementById('inventario-search').addEventListener('input', e=>{
+    state.inventarioSearch = e.target.value;
+    renderInventario(document.getElementById('main-content'));
+  });
+}
+
+function insumoOptions(selectedId){
+  return db.insumos.slice().sort((a,b)=>a.nombre.localeCompare(b.nombre)).map(i=>
+    `<option value="${i.id}" ${i.id===selectedId?'selected':''}>${escapeHtml(i.nombre)} (${escapeHtml(i.unidadMedida)}) — ${formatCLP(i.costoUnitario)}</option>`
+  ).join('');
+}
+
+function openInsumoForm(id){
+  const editing = id ? byId(db.insumos, id) : null;
+  const title = editing ? 'Editar insumo' : 'Nuevo insumo';
+  const catOptions = CATEGORIAS_INSUMO.map(c=>`<option value="${c}" ${editing&&editing.categoria===c?'selected':''}>${c}</option>`).join('')
+    + (editing && !CATEGORIAS_INSUMO.includes(editing.categoria) ? `<option value="${escapeHtml(editing.categoria)}" selected>${escapeHtml(editing.categoria)}</option>` : '');
+  const body = `
+    <form id="modal-form" data-entity="insumo" data-id="${editing?editing.id:''}">
+      <div class="form-group">
+        <label>Nombre del insumo</label>
+        <input type="text" name="nombre" required value="${editing?escapeHtml(editing.nombre):''}">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Categoría</label>
+          <select name="categoria">${catOptions}</select>
+        </div>
+        <div class="form-group">
+          <label>Unidad de medida</label>
+          <input type="text" name="unidadMedida" placeholder="ml, unidad, caja..." required value="${editing?escapeHtml(editing.unidadMedida):''}">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Stock actual</label>
+          <input type="number" name="stockActual" min="0" step="0.01" required value="${editing?editing.stockActual:0}">
+        </div>
+        <div class="form-group">
+          <label>Stock mínimo</label>
+          <input type="number" name="stockMinimo" min="0" step="0.01" required value="${editing?editing.stockMinimo:0}">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Costo unitario (CLP)</label>
+          <input type="number" name="costoUnitario" min="0" step="1" required value="${editing?editing.costoUnitario:0}">
+        </div>
+        <div class="form-group">
+          <label>Proveedor</label>
+          <input type="text" name="proveedor" value="${editing?escapeHtml(editing.proveedor):''}">
+        </div>
+      </div>
+      <div class="modal-footer" style="padding:0; margin-top:8px;">
+        <button type="button" class="btn btn-secondary" data-action="modal-close">Cancelar</button>
+        <button type="submit" class="btn btn-primary">Guardar</button>
+      </div>
+    </form>`;
+  openModal(title, body);
+}
+
+function saveInsumoForm(form, id){
+  const fd = new FormData(form);
+  const data = {
+    nombre: fd.get('nombre').trim(),
+    categoria: fd.get('categoria'),
+    unidadMedida: fd.get('unidadMedida').trim(),
+    stockActual: Number(fd.get('stockActual')),
+    stockMinimo: Number(fd.get('stockMinimo')),
+    costoUnitario: Number(fd.get('costoUnitario')),
+    proveedor: fd.get('proveedor').trim()
+  };
+  if(id){
+    const it = byId(db.insumos, id);
+    Object.assign(it, data);
+    it.actualizadoEn = new Date().toISOString();
+  }else{
+    db.insumos.push(Object.assign({ id: uid(), creadoEn:new Date().toISOString(), actualizadoEn:new Date().toISOString() }, data));
+  }
+  saveDB(); closeModal(); render();
+}
+
+function deleteInsumo(id){
+  if(!confirm('¿Eliminar este insumo? Esta acción no se puede deshacer.')) return;
+  db.insumos = db.insumos.filter(i=>i.id!==id);
+  saveDB(); render();
+}
+
+function openAjusteStockForm(id){
+  const insumo = byId(db.insumos, id);
+  if(!insumo) return;
+  const body = `
+    <form id="modal-form" data-entity="ajuste-insumo" data-id="${insumo.id}">
+      <p class="hint" style="margin-top:0;">Stock actual: <strong>${formatNum(insumo.stockActual)} ${escapeHtml(insumo.unidadMedida)}</strong></p>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Tipo de movimiento</label>
+          <select name="tipo">
+            <option value="entrada">Entrada (compra / reposición)</option>
+            <option value="salida">Salida (merma / ajuste)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Cantidad</label>
+          <input type="number" name="cantidad" min="0.01" step="0.01" required>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Motivo</label>
+        <input type="text" name="motivo" placeholder="Compra a proveedor, merma, ajuste de inventario..." required>
+      </div>
+      <div class="form-group">
+        <label>Fecha</label>
+        <input type="date" name="fecha" value="${todayLocalISO()}" required>
+      </div>
+      <div class="modal-footer" style="padding:0; margin-top:8px;">
+        <button type="button" class="btn btn-secondary" data-action="modal-close">Cancelar</button>
+        <button type="submit" class="btn btn-primary">Registrar movimiento</button>
+      </div>
+    </form>`;
+  openModal('Ajustar stock — ' + insumo.nombre, body);
+}
+
+function saveAjusteStockForm(form, insumoId){
+  const fd = new FormData(form);
+  const tipo = fd.get('tipo');
+  const cantidad = Number(fd.get('cantidad'));
+  const motivo = fd.get('motivo').trim();
+  const fecha = fd.get('fecha');
+  const insumo = byId(db.insumos, insumoId);
+  if(!insumo || cantidad<=0) return;
+  if(tipo==='salida' && cantidad > Number(insumo.stockActual)){
+    if(!confirm('La cantidad de salida supera el stock actual. ¿Continuar de todas formas?')) return;
+  }
+  insumo.stockActual = Number(insumo.stockActual) + (tipo==='entrada'? cantidad : -cantidad);
+  db.movimientosInventario.push({ id:uid(), insumoId, tipo, cantidad, motivo, referenciaId:null, fecha });
+  saveDB(); closeModal(); render();
+}
+
+/* ============================= TRATAMIENTOS ============================= */
+function calcTratamientoCosto(insumosUsados){
+  return (insumosUsados||[]).reduce((sum, iu)=>{
+    const insumo = byId(db.insumos, iu.insumoId);
+    return sum + (insumo ? Number(insumo.costoUnitario) * Number(iu.cantidad) : 0);
+  }, 0);
+}
+
+function renderTratamientos(main){
+  const list = db.tratamientos.map(t=>{
+    const costoInsumos = calcTratamientoCosto(t.insumosUsados);
+    const margen = Number(t.precioVenta) - costoInsumos;
+    const margenPct = Number(t.precioVenta) > 0 ? (margen / Number(t.precioVenta) * 100) : 0;
+    return Object.assign({}, t, { costoInsumos, margen, margenPct });
+  });
+  list.sort((a,b)=> state.tratamientosSortDir==='desc' ? b.margenPct - a.margenPct : a.margenPct - b.margenPct);
+
+  let html = `<div class="panel">
+    <div class="panel-header">
+      <h2 class="panel-title">Tratamientos</h2>
+      <button class="btn btn-primary" data-action="tratamiento-new">+ Nuevo tratamiento</button>
+    </div>`;
+
+  if(!list.length){
+    html += `<div class="empty-state">No hay tratamientos registrados. ${db.insumos.length? '' : 'Primero registra insumos en Inventario.'}</div>`;
+  }else{
+    html += `<div class="table-wrap"><table><thead><tr>
+      <th>Nombre</th><th class="num">Tiempo (min)</th><th class="num">Costo insumos</th><th class="num">Precio venta</th>
+      <th class="num">Margen</th><th class="num" style="cursor:pointer;" data-action="tratamiento-sort">Margen % ${state.tratamientosSortDir==='desc'?'&#9660;':'&#9650;'}</th><th></th>
+    </tr></thead><tbody>`;
+    list.forEach(t=>{
+      const badge = t.margenPct < 0 ? 'badge-warning' : (t.margenPct < 30 ? 'badge-muted' : 'badge-success');
+      html += `<tr>
+        <td>${escapeHtml(t.nombre)}</td>
+        <td class="num">${formatNum(t.tiempoEstimadoMin)}</td>
+        <td class="num">${formatCLP(t.costoInsumos)}</td>
+        <td class="num">${formatCLP(t.precioVenta)}</td>
+        <td class="num">${formatCLP(t.margen)}</td>
+        <td class="num"><span class="badge ${badge}">${t.margenPct.toFixed(1)}%</span></td>
+        <td><div class="row-actions">
+          <button class="btn btn-secondary btn-sm" data-action="tratamiento-edit" data-id="${t.id}">Editar</button>
+          <button class="btn btn-danger btn-sm" data-action="tratamiento-delete" data-id="${t.id}">Eliminar</button>
+        </div></td>
+      </tr>`;
+    });
+    html += `</tbody></table></div>`;
+  }
+  html += `</div>`;
+  main.innerHTML = html;
+}
+
+function tratamientoInsumoRowHtml(selInsumoId, cantidad){
+  return `<div class="dyn-row" data-row="insumo">
+    <div class="form-group">
+      <select name="insumoId[]" class="tr-insumo-select">
+        <option value="">Seleccionar insumo...</option>
+        ${insumoOptions(selInsumoId)}
+      </select>
+    </div>
+    <div class="form-group qty">
+      <input type="number" name="cantidadInsumo[]" min="0.01" step="0.01" placeholder="Cant." value="${cantidad!==undefined?cantidad:''}" class="tr-insumo-qty">
+    </div>
+    <button type="button" class="btn btn-secondary btn-sm dyn-remove" data-action="tratamiento-remove-row">&times;</button>
+  </div>`;
+}
+
+function openTratamientoForm(id){
+  const editing = id ? byId(db.tratamientos, id) : null;
+  if(!db.insumos.length){
+    alert('Primero debes registrar al menos un insumo en el módulo Inventario.');
+    return;
+  }
+  const title = editing ? 'Editar tratamiento' : 'Nuevo tratamiento';
+  const rows = editing && editing.insumosUsados.length
+    ? editing.insumosUsados.map(iu=>tratamientoInsumoRowHtml(iu.insumoId, iu.cantidad)).join('')
+    : tratamientoInsumoRowHtml();
+
+  const body = `
+    <form id="modal-form" data-entity="tratamiento" data-id="${editing?editing.id:''}">
+      <div class="form-group">
+        <label>Nombre del tratamiento</label>
+        <input type="text" name="nombre" required value="${editing?escapeHtml(editing.nombre):''}">
+      </div>
+      <div class="form-group">
+        <label>Descripción</label>
+        <textarea name="descripcion">${editing?escapeHtml(editing.descripcion||''):''}</textarea>
+      </div>
+      <div class="form-group">
+        <label>Tiempo estimado (minutos)</label>
+        <input type="number" name="tiempoEstimadoMin" min="0" step="1" required value="${editing?editing.tiempoEstimadoMin:30}">
+      </div>
+      <div class="form-group">
+        <label>Insumos utilizados</label>
+        <div id="tr-insumos-rows">${rows}</div>
+        <button type="button" class="btn btn-secondary btn-sm dyn-add" data-action="tratamiento-add-row">+ Agregar insumo</button>
+      </div>
+      <div class="form-group">
+        <label>Precio de venta (CLP)</label>
+        <input type="number" name="precioVenta" min="0" step="1" required value="${editing?editing.precioVenta:0}" id="tr-precio-venta">
+      </div>
+      <div class="preview-box" id="tr-preview"></div>
+      <div class="modal-footer" style="padding:0; margin-top:12px;">
+        <button type="button" class="btn btn-secondary" data-action="modal-close">Cancelar</button>
+        <button type="submit" class="btn btn-primary">Guardar tratamiento</button>
+      </div>
+    </form>`;
+  openModal(title, body, true);
+  updateTratamientoPreview();
+  document.getElementById('modal-body').addEventListener('input', updateTratamientoPreview);
+}
+
+function updateTratamientoPreview(){
+  const container = document.getElementById('tr-insumos-rows');
+  if(!container) return;
+  let costo = 0;
+  container.querySelectorAll('[data-row="insumo"]').forEach(row=>{
+    const insumoId = row.querySelector('.tr-insumo-select').value;
+    const cant = Number(row.querySelector('.tr-insumo-qty').value) || 0;
+    const insumo = byId(db.insumos, insumoId);
+    if(insumo) costo += Number(insumo.costoUnitario) * cant;
+  });
+  const precio = Number(document.getElementById('tr-precio-venta').value) || 0;
+  const margen = precio - costo;
+  const margenPct = precio>0 ? (margen/precio*100) : 0;
+  document.getElementById('tr-preview').innerHTML = `
+    <div class="pv-row"><span>Costo total de insumos</span><span>${formatCLP(costo)}</span></div>
+    <div class="pv-row total"><span>Margen</span><span class="${margen>=0?'pv-pos':'pv-neg'}">${formatCLP(margen)} (${margenPct.toFixed(1)}%)</span></div>
+  `;
+}
+
+function saveTratamientoForm(form, id){
+  const fd = new FormData(form);
+  const insumoIds = fd.getAll('insumoId[]');
+  const cantidades = fd.getAll('cantidadInsumo[]');
+  const insumosUsados = [];
+  insumoIds.forEach((iid,idx)=>{
+    const cant = Number(cantidades[idx]);
+    if(iid && cant>0) insumosUsados.push({ insumoId:iid, cantidad:cant });
+  });
+  const data = {
+    nombre: fd.get('nombre').trim(),
+    descripcion: fd.get('descripcion').trim(),
+    tiempoEstimadoMin: Number(fd.get('tiempoEstimadoMin')),
+    insumosUsados,
+    precioVenta: Number(fd.get('precioVenta')),
+    activo: true
+  };
+  if(id){
+    const t = byId(db.tratamientos, id);
+    Object.assign(t, data);
+  }else{
+    db.tratamientos.push(Object.assign({ id: uid() }, data));
+  }
+  saveDB(); closeModal(); render();
+}
+
+function deleteTratamiento(id){
+  if(!confirm('¿Eliminar este tratamiento?')) return;
+  db.tratamientos = db.tratamientos.filter(t=>t.id!==id);
+  saveDB(); render();
+}
+
+/* ============================= PACIENTES ============================= */
+function pacienteOptions(selectedId){
+  return db.pacientes.slice().sort((a,b)=>a.nombre.localeCompare(b.nombre)).map(p=>
+    `<option value="${p.id}" ${p.id===selectedId?'selected':''}>${escapeHtml(p.nombre)}</option>`
+  ).join('');
+}
+
+function openPacienteForm(id, returnAfterSave){
+  const editing = id ? byId(db.pacientes, id) : null;
+  state.returnAfterSave = returnAfterSave || null;
+  const title = editing ? 'Editar paciente' : 'Nuevo paciente';
+  const body = `
+    <form id="modal-form" data-entity="paciente" data-id="${editing?editing.id:''}">
+      <div class="form-group">
+        <label>Nombre completo</label>
+        <input type="text" name="nombre" required value="${editing?escapeHtml(editing.nombre):''}">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Teléfono</label>
+          <input type="text" name="telefono" value="${editing?escapeHtml(editing.telefono):''}">
+        </div>
+        <div class="form-group">
+          <label>Email</label>
+          <input type="text" name="email" value="${editing?escapeHtml(editing.email):''}">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Notas</label>
+        <textarea name="notas">${editing?escapeHtml(editing.notas||''):''}</textarea>
+      </div>
+      <div class="modal-footer" style="padding:0; margin-top:8px;">
+        <button type="button" class="btn btn-secondary" data-action="modal-close">Cancelar</button>
+        <button type="submit" class="btn btn-primary">Guardar</button>
+      </div>
+    </form>`;
+  openModal(title, body);
+}
+
+function savePacienteForm(form, id){
+  const fd = new FormData(form);
+  const data = {
+    nombre: fd.get('nombre').trim(),
+    telefono: fd.get('telefono').trim(),
+    email: fd.get('email').trim(),
+    notas: fd.get('notas').trim()
+  };
+  let paciente;
+  if(id){
+    paciente = byId(db.pacientes, id);
+    Object.assign(paciente, data);
+  }else{
+    paciente = Object.assign({ id: uid(), creadoEn:new Date().toISOString() }, data);
+    db.pacientes.push(paciente);
+  }
+  saveDB();
+  closeModal();
+  const ret = state.returnAfterSave;
+  state.returnAfterSave = null;
+  if(ret==='reserva'){
+    const draft = state.formDraft || {}; state.formDraft = null;
+    draft.pacienteId = paciente.id;
+    openReservaForm(draft.id||null, draft);
+  }else if(ret==='venta'){
+    const draft = state.formDraft || {}; state.formDraft = null;
+    draft.pacienteId = paciente.id;
+    openVentaForm(draft);
+  }else{
+    render();
+  }
+}
+
+function deletePaciente(id){
+  if(!confirm('¿Eliminar este paciente? Las reservas y ventas asociadas conservarán la referencia histórica.')) return;
+  db.pacientes = db.pacientes.filter(p=>p.id!==id);
+  saveDB(); render();
+}
+
+/* ============================= RESERVAS ============================= */
+function agendaItemHtml(r){
+  const paciente = byId(db.pacientes, r.pacienteId);
+  const tratamiento = byId(db.tratamientos, r.tratamientoId);
+  const estadoBadge = {
+    pendiente:'badge-muted', confirmada:'badge-info', atendida:'badge-success', cancelada:'badge-warning'
+  }[r.estado] || 'badge-muted';
+  const yaVenta = db.ventas.some(v=>v.reservaId===r.id);
+  let actions = `<select class="btn-sm" data-action="reserva-set-estado" data-id="${r.id}" style="padding:5px 8px; font-size:12px;">
+      ${['pendiente','confirmada','atendida','cancelada'].map(e=>`<option value="${e}" ${r.estado===e?'selected':''}>${e.charAt(0).toUpperCase()+e.slice(1)}</option>`).join('')}
+    </select>
+    <button class="btn btn-secondary btn-sm" data-action="reserva-edit" data-id="${r.id}">Editar</button>
+    <button class="btn btn-danger btn-sm" data-action="reserva-delete" data-id="${r.id}">Eliminar</button>`;
+  if(r.estado==='atendida' && !yaVenta){
+    actions = `<button class="btn btn-primary btn-sm" data-action="reserva-registrar-venta" data-id="${r.id}">Registrar venta</button>` + actions;
+  }
+  return `<div class="agenda-item">
+    <div class="agenda-hora">${escapeHtml(r.hora)}</div>
+    <div class="agenda-info">
+      <div class="ai-paciente">${escapeHtml(paciente?paciente.nombre:'(paciente eliminado)')} <span class="badge ${estadoBadge}">${r.estado}</span> ${yaVenta?'<span class=\"badge badge-success\">Venta registrada</span>':''}</div>
+      <div class="ai-detalle">${escapeHtml(tratamiento?tratamiento.nombre:'(tratamiento eliminado)')} ${r.notas? ' · '+escapeHtml(r.notas):''}</div>
+    </div>
+    <div class="agenda-actions">${actions}</div>
+  </div>`;
+}
+
+function renderReservas(main){
+  let html = `<div class="tabs">
+    <div class="tab ${state.reservasSub==='agenda-dia'?'active':''}" data-action="reservas-subview" data-sub="agenda-dia">Agenda del día</div>
+    <div class="tab ${state.reservasSub==='agenda-semana'?'active':''}" data-action="reservas-subview" data-sub="agenda-semana">Agenda de la semana</div>
+    <div class="tab ${state.reservasSub==='pacientes'?'active':''}" data-action="reservas-subview" data-sub="pacientes">Pacientes</div>
+  </div>`;
+
+  if(state.reservasSub==='agenda-dia'){
+    html += renderAgendaDia();
+  }else if(state.reservasSub==='agenda-semana'){
+    html += renderAgendaSemana();
+  }else{
+    html += renderPacientesTab();
+  }
+
+  main.innerHTML = html;
+
+  if(state.reservasSub==='agenda-dia'){
+    document.getElementById('agenda-dia-date').addEventListener('change', e=>{
+      state.agendaDiaFecha = e.target.value; render();
+    });
+  }
+  if(state.reservasSub==='pacientes'){
+    document.getElementById('pacientes-search').addEventListener('input', e=>{
+      state.pacientesSearch = e.target.value; render();
+    });
+  }
+}
+
+function renderAgendaDia(){
+  const fecha = state.agendaDiaFecha;
+  const items = db.reservas.filter(r=>r.fecha===fecha).sort((a,b)=>a.hora.localeCompare(b.hora));
+  let html = `<div class="panel">
+    <div class="panel-header">
+      <h2 class="panel-title">${escapeHtml(formatDateLong(fromISODateLocal(fecha)))}</h2>
+      <div style="display:flex; gap:10px; align-items:center;">
+        <input type="date" id="agenda-dia-date" value="${fecha}">
+        <button class="btn btn-primary" data-action="reserva-new">+ Nueva reserva</button>
+      </div>
+    </div>`;
+  html += items.length ? items.map(agendaItemHtml).join('') : `<div class="empty-state">No hay reservas para este día.</div>`;
+  html += `</div>`;
+  return html;
+}
+
+function renderAgendaSemana(){
+  const anchor = state.agendaSemanaAnchor;
+  const days = Array.from({length:7}, (_,i)=>addDays(anchor,i));
+  const today = todayLocalISO();
+  let html = `<div class="panel">
+    <div class="panel-header">
+      <h2 class="panel-title">Semana del ${formatDateShort(days[0])} al ${formatDateShort(days[6])}</h2>
+      <div style="display:flex; gap:10px;">
+        <button class="btn btn-secondary btn-sm" data-action="agenda-semana-prev">&larr; Anterior</button>
+        <button class="btn btn-secondary btn-sm" data-action="agenda-semana-next">Siguiente &rarr;</button>
+        <button class="btn btn-primary" data-action="reserva-new">+ Nueva reserva</button>
+      </div>
+    </div>
+    <div class="week-grid">`;
+  days.forEach(d=>{
+    const iso = toISODateLocal(d);
+    const items = db.reservas.filter(r=>r.fecha===iso).sort((a,b)=>a.hora.localeCompare(b.hora));
+    html += `<div class="week-day">
+      <div class="week-day-head ${iso===today?'today':''}">${weekdayShort(d)} ${d.getDate()}</div>`;
+    if(!items.length){
+      html += `<div class="text-suave" style="font-size:11px;">—</div>`;
+    }else{
+      items.forEach(r=>{
+        const paciente = byId(db.pacientes, r.pacienteId);
+        html += `<div class="week-item" data-action="reserva-edit" data-id="${r.id}">
+          <div class="wi-hora">${escapeHtml(r.hora)}</div>
+          <div>${escapeHtml(paciente?paciente.nombre:'—')}</div>
+        </div>`;
+      });
+    }
+    html += `</div>`;
+  });
+  html += `</div></div>`;
+  return html;
+}
+
+function renderPacientesTab(){
+  const q = state.pacientesSearch.trim().toLowerCase();
+  const pacientes = db.pacientes.filter(p=>!q || p.nombre.toLowerCase().includes(q)).sort((a,b)=>a.nombre.localeCompare(b.nombre));
+  let html = `<div class="panel">
+    <div class="panel-header">
+      <h2 class="panel-title">Pacientes</h2>
+      <div style="display:flex; gap:10px;">
+        <input type="search" class="search-input" id="pacientes-search" placeholder="Buscar paciente..." value="${escapeHtml(state.pacientesSearch)}">
+        <button class="btn btn-primary" data-action="paciente-new">+ Nuevo paciente</button>
+      </div>
+    </div>`;
+  if(!pacientes.length){
+    html += `<div class="empty-state">No hay pacientes registrados.</div>`;
+  }else{
+    html += `<div class="table-wrap"><table><thead><tr><th>Nombre</th><th>Teléfono</th><th>Email</th><th>Notas</th><th></th></tr></thead><tbody>`;
+    pacientes.forEach(p=>{
+      html += `<tr>
+        <td>${escapeHtml(p.nombre)}</td>
+        <td>${escapeHtml(p.telefono)}</td>
+        <td>${escapeHtml(p.email)}</td>
+        <td>${escapeHtml(p.notas)}</td>
+        <td><div class="row-actions">
+          <button class="btn btn-secondary btn-sm" data-action="paciente-edit" data-id="${p.id}">Editar</button>
+          <button class="btn btn-danger btn-sm" data-action="paciente-delete" data-id="${p.id}">Eliminar</button>
+        </div></td>
+      </tr>`;
+    });
+    html += `</tbody></table></div>`;
+  }
+  html += `</div>`;
+  return html;
+}
+
+function openReservaForm(id, draft){
+  const editing = id ? byId(db.reservas, id) : null;
+  const d = draft || editing || {};
+  const title = editing ? 'Editar reserva' : 'Nueva reserva';
+  const pacienteSelectHtml = db.pacientes.length
+    ? `<select name="pacienteId" required><option value="">Seleccionar paciente...</option>${pacienteOptions(d.pacienteId)}</select>`
+    : `<div class="hint">No hay pacientes. Crea uno primero.</div>`;
+  const tratamientoOpts = db.tratamientos.slice().sort((a,b)=>a.nombre.localeCompare(b.nombre)).map(t=>
+    `<option value="${t.id}" ${t.id===d.tratamientoId?'selected':''}>${escapeHtml(t.nombre)} — ${formatCLP(t.precioVenta)}</option>`
+  ).join('');
+
+  const body = `
+    <form id="modal-form" data-entity="reserva" data-id="${editing?editing.id:''}">
+      <div class="form-group">
+        <label>Paciente</label>
+        <div style="display:flex; gap:8px;">
+          <div style="flex:1;">${pacienteSelectHtml}</div>
+          <button type="button" class="btn btn-secondary btn-sm" data-action="reserva-nuevo-paciente" style="height:38px;">+ Nuevo</button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Tratamiento</label>
+        <select name="tratamientoId" required>
+          <option value="">Seleccionar tratamiento...</option>
+          ${tratamientoOpts}
+        </select>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Fecha</label>
+          <input type="date" name="fecha" required value="${d.fecha||state.agendaDiaFecha}">
+        </div>
+        <div class="form-group">
+          <label>Hora</label>
+          <input type="time" name="hora" required value="${d.hora||''}">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Estado</label>
+        <select name="estado">
+          ${['pendiente','confirmada','atendida','cancelada'].map(e=>`<option value="${e}" ${(d.estado||'pendiente')===e?'selected':''}>${e.charAt(0).toUpperCase()+e.slice(1)}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Notas</label>
+        <textarea name="notas">${d.notas?escapeHtml(d.notas):''}</textarea>
+      </div>
+      <div class="modal-footer" style="padding:0; margin-top:8px;">
+        <button type="button" class="btn btn-secondary" data-action="modal-close">Cancelar</button>
+        <button type="submit" class="btn btn-primary">Guardar reserva</button>
+      </div>
+    </form>`;
+  openModal(title, body);
+}
+
+function saveReservaForm(form, id){
+  const fd = new FormData(form);
+  const data = {
+    pacienteId: fd.get('pacienteId'),
+    tratamientoId: fd.get('tratamientoId'),
+    fecha: fd.get('fecha'),
+    hora: fd.get('hora'),
+    estado: fd.get('estado'),
+    notas: fd.get('notas').trim()
+  };
+  if(!data.pacienteId || !data.tratamientoId){ alert('Debes seleccionar paciente y tratamiento.'); return; }
+  let reserva;
+  const prevEstado = id ? byId(db.reservas,id).estado : null;
+  if(id){
+    reserva = byId(db.reservas, id);
+    Object.assign(reserva, data);
+  }else{
+    reserva = Object.assign({ id: uid() }, data);
+    db.reservas.push(reserva);
+  }
+  saveDB(); closeModal();
+  const yaVenta = db.ventas.some(v=>v.reservaId===reserva.id);
+  if(reserva.estado==='atendida' && !yaVenta && prevEstado!=='atendida'){
+    if(confirm('La reserva quedó marcada como "atendida". ¿Deseas registrar la venta ahora con estos datos?')){
+      openVentaForm({ pacienteId:reserva.pacienteId, tratamientoIds:[reserva.tratamientoId], fecha:reserva.fecha, reservaId:reserva.id });
+      return;
+    }
+  }
+  render();
+}
+
+function setReservaEstado(id, estado){
+  const reserva = byId(db.reservas, id);
+  if(!reserva) return;
+  const prevEstado = reserva.estado;
+  reserva.estado = estado;
+  saveDB();
+  const yaVenta = db.ventas.some(v=>v.reservaId===reserva.id);
+  if(estado==='atendida' && !yaVenta && prevEstado!=='atendida'){
+    if(confirm('La reserva quedó marcada como "atendida". ¿Deseas registrar la venta ahora con estos datos?')){
+      openVentaForm({ pacienteId:reserva.pacienteId, tratamientoIds:[reserva.tratamientoId], fecha:reserva.fecha, reservaId:reserva.id });
+      return;
+    }
+  }
+  render();
+}
+
+function deleteReserva(id){
+  if(!confirm('¿Eliminar esta reserva?')) return;
+  db.reservas = db.reservas.filter(r=>r.id!==id);
+  saveDB(); render();
+}
+
+/* ============================= VENTAS ============================= */
+function ventaTratamientoRowHtml(selId){
+  return `<div class="dyn-row" data-row="venta-tratamiento">
+    <div class="form-group">
+      <select name="tratamientoId[]" class="vt-select">
+        <option value="">Seleccionar tratamiento...</option>
+        ${db.tratamientos.slice().sort((a,b)=>a.nombre.localeCompare(b.nombre)).map(t=>`<option value="${t.id}" ${t.id===selId?'selected':''}>${escapeHtml(t.nombre)} — ${formatCLP(t.precioVenta)}</option>`).join('')}
+      </select>
+    </div>
+    <button type="button" class="btn btn-secondary btn-sm dyn-remove" data-action="venta-remove-row">&times;</button>
+  </div>`;
+}
+
+function openVentaForm(prefill){
+  prefill = prefill || {};
+  if(!db.tratamientos.length){ alert('Primero debes registrar al menos un tratamiento.'); return; }
+  const tratamientoIds = prefill.tratamientoIds || [''];
+  const rows = tratamientoIds.map(tid=>ventaTratamientoRowHtml(tid)).join('');
+  const pacienteSelectHtml = db.pacientes.length
+    ? `<select name="pacienteId" required>${prefill.pacienteId?'':'<option value="">Seleccionar paciente...</option>'}${pacienteOptions(prefill.pacienteId)}</select>`
+    : `<div class="hint">No hay pacientes. Crea uno primero.</div>`;
+
+  const body = `
+    <form id="modal-form" data-entity="venta" data-reserva-id="${prefill.reservaId||''}">
+      <div class="form-group">
+        <label>Paciente</label>
+        <div style="display:flex; gap:8px;">
+          <div style="flex:1;">${pacienteSelectHtml}</div>
+          <button type="button" class="btn btn-secondary btn-sm" data-action="venta-nuevo-paciente" style="height:38px;">+ Nuevo</button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Tratamiento(s)</label>
+        <div id="venta-tratamientos-rows">${rows}</div>
+        <button type="button" class="btn btn-secondary btn-sm dyn-add" data-action="venta-add-row">+ Agregar tratamiento</button>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Fecha</label>
+          <input type="date" name="fecha" required value="${prefill.fecha||todayLocalISO()}">
+        </div>
+        <div class="form-group">
+          <label>Método de pago</label>
+          <select name="metodoPago">${METODOS_PAGO.map(m=>`<option value="${m}">${m}</option>`).join('')}</select>
+        </div>
+      </div>
+      <div class="preview-box" id="venta-preview"></div>
+      <div class="modal-footer" style="padding:0; margin-top:12px;">
+        <button type="button" class="btn btn-secondary" data-action="modal-close">Cancelar</button>
+        <button type="submit" class="btn btn-primary">Registrar venta</button>
+      </div>
+    </form>`;
+  openModal('Registrar venta', body, true);
+  updateVentaPreview();
+  document.getElementById('modal-body').addEventListener('change', updateVentaPreview);
+}
+
+function updateVentaPreview(){
+  const container = document.getElementById('venta-tratamientos-rows');
+  if(!container) return;
+  let total = 0;
+  container.querySelectorAll('.vt-select').forEach(sel=>{
+    const t = byId(db.tratamientos, sel.value);
+    if(t) total += Number(t.precioVenta);
+  });
+  document.getElementById('venta-preview').innerHTML = `<div class="pv-row total"><span>Monto total</span><span>${formatCLP(total)}</span></div>`;
+}
+
+function saveVentaForm(form){
+  const fd = new FormData(form);
+  const pacienteId = fd.get('pacienteId');
+  const tratamientoIds = fd.getAll('tratamientoId[]').filter(Boolean);
+  if(!pacienteId){ alert('Debes seleccionar un paciente.'); return; }
+  if(!tratamientoIds.length){ alert('Debes agregar al menos un tratamiento.'); return; }
+
+  const tratamientosLinea = [];
+  let montoTotal = 0;
+  tratamientoIds.forEach(tid=>{
+    const t = byId(db.tratamientos, tid);
+    if(t){ tratamientosLinea.push({ tratamientoId:t.id, precio:Number(t.precioVenta) }); montoTotal += Number(t.precioVenta); }
+  });
+
+  const venta = {
+    id: uid(),
+    fecha: fd.get('fecha'),
+    pacienteId,
+    tratamientos: tratamientosLinea,
+    metodoPago: fd.get('metodoPago'),
+    montoTotal,
+    reservaId: form.dataset.reservaId || null
+  };
+  db.ventas.push(venta);
+
+  // Descontar stock de insumos usados
+  tratamientosLinea.forEach(linea=>{
+    const t = byId(db.tratamientos, linea.tratamientoId);
+    if(!t) return;
+    (t.insumosUsados||[]).forEach(iu=>{
+      const insumo = byId(db.insumos, iu.insumoId);
+      if(!insumo) return;
+      insumo.stockActual = Number(insumo.stockActual) - Number(iu.cantidad);
+      db.movimientosInventario.push({
+        id: uid(), insumoId: insumo.id, tipo:'salida', cantidad:Number(iu.cantidad),
+        motivo: 'Venta — ' + t.nombre, referenciaId: venta.id, fecha: venta.fecha
+      });
+    });
+  });
+
+  saveDB(); closeModal(); render();
+}
+
+function deleteVenta(id){
+  const venta = byId(db.ventas, id);
+  if(!venta) return;
+  if(!confirm('¿Anular esta venta? Se repondrá el stock de insumos utilizados.')) return;
+  venta.tratamientos.forEach(linea=>{
+    const t = byId(db.tratamientos, linea.tratamientoId);
+    if(!t) return;
+    (t.insumosUsados||[]).forEach(iu=>{
+      const insumo = byId(db.insumos, iu.insumoId);
+      if(!insumo) return;
+      insumo.stockActual = Number(insumo.stockActual) + Number(iu.cantidad);
+      db.movimientosInventario.push({
+        id: uid(), insumoId: insumo.id, tipo:'entrada', cantidad:Number(iu.cantidad),
+        motivo: 'Anulación de venta — ' + t.nombre, referenciaId: venta.id, fecha: todayLocalISO()
+      });
+    });
+  });
+  db.ventas = db.ventas.filter(v=>v.id!==id);
+  saveDB(); render();
+}
+
+function getReportRange(period, offset){
+  const now = new Date(); now.setHours(0,0,0,0);
+  if(period==='dia'){
+    const d = addDays(now, -offset);
+    return { start:d, end:d, label: formatDateLong(d) };
+  }else if(period==='semana'){
+    const thisWeekStart = startOfWeek(now);
+    const start = addDays(thisWeekStart, -7*offset);
+    const end = addDays(start,6);
+    return { start, end, label: `${formatDateShort(start)} — ${formatDateShort(end)}` };
+  }else{
+    const base = new Date(now.getFullYear(), now.getMonth()-offset, 1);
+    const start = new Date(base.getFullYear(), base.getMonth(), 1);
+    const end = new Date(base.getFullYear(), base.getMonth()+1, 0);
+    const label = base.toLocaleDateString('es-CL',{ month:'long', year:'numeric' });
+    return { start, end, label: label.charAt(0).toUpperCase()+label.slice(1) };
+  }
+}
+
+function renderVentas(main){
+  let html = `<div class="panel">
+    <div class="panel-header">
+      <h2 class="panel-title">Registrar venta</h2>
+      <button class="btn btn-primary" data-action="venta-new">+ Nueva venta</button>
+    </div>
+    <p class="text-suave" style="margin:0; font-size:13px;">Al registrar una venta se descuenta automáticamente el stock de los insumos usados por el tratamiento.</p>
+  </div>`;
+
+  const range = getReportRange(state.ventasReportPeriod, state.ventasReportOffset);
+  const startISO = toISODateLocal(range.start), endISO = toISODateLocal(range.end);
+  const ventasRango = db.ventas.filter(v=> v.fecha>=startISO && v.fecha<=endISO);
+  const totalRango = ventasRango.reduce((s,v)=>s+Number(v.montoTotal),0);
+
+  html += `<div class="panel">
+    <div class="panel-header">
+      <h2 class="panel-title">Reporte de ventas</h2>
+      <div class="tabs" style="border-bottom:none; margin:0;">
+        ${['dia','semana','mes'].map(p=>`<div class="tab ${state.ventasReportPeriod===p?'active':''}" data-action="ventas-report-tab" data-period="${p}">${p==='dia'?'Día':p==='semana'?'Semana':'Mes'}</div>`).join('')}
+      </div>
+    </div>
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;">
+      <div style="display:flex; align-items:center; gap:10px;">
+        <button class="btn btn-secondary btn-sm" data-action="ventas-report-prev">&larr;</button>
+        <strong>${escapeHtml(range.label)}</strong>
+        <button class="btn btn-secondary btn-sm" data-action="ventas-report-next" ${state.ventasReportOffset<=0?'disabled':''}>&rarr;</button>
+      </div>
+      <div class="card-value" style="font-size:22px;">${formatCLP(totalRango)}</div>
+    </div>`;
+
+  if(state.ventasReportPeriod==='dia'){
+    if(!ventasRango.length){
+      html += `<div class="empty-state">Sin ventas en este día.</div>`;
+    }else{
+      html += ventasTableHtml(ventasRango);
+    }
+  }else{
+    const bars = [];
+    if(state.ventasReportPeriod==='semana'){
+      for(let i=0;i<7;i++){
+        const d = addDays(range.start,i);
+        const iso = toISODateLocal(d);
+        const total = db.ventas.filter(v=>v.fecha===iso).reduce((s,v)=>s+Number(v.montoTotal),0);
+        bars.push({ label: weekdayShort(d), value: total });
+      }
+    }else{
+      const daysInMonth = range.end.getDate();
+      for(let day=1; day<=daysInMonth; day++){
+        const d = new Date(range.start.getFullYear(), range.start.getMonth(), day);
+        const iso = toISODateLocal(d);
+        const total = db.ventas.filter(v=>v.fecha===iso).reduce((s,v)=>s+Number(v.montoTotal),0);
+        bars.push({ label: String(day), value: total });
+      }
+    }
+    const max = Math.max(1, ...bars.map(b=>b.value));
+    html += `<div class="bar-chart">${bars.map(b=>`
+      <div class="bar-col" title="${escapeHtml(b.label)}: ${formatCLP(b.value)}">
+        ${b.value>0?`<div class="bar-val">${formatNum(Math.round(b.value/1000))}k</div>`:''}
+        <div class="bar" style="height:${Math.max(2,(b.value/max*100))}%;"></div>
+        <div class="bar-lbl">${escapeHtml(b.label)}</div>
+      </div>`).join('')}</div>`;
+  }
+  html += `</div>`;
+
+  const recientes = [...db.ventas].sort((a,b)=> b.fecha.localeCompare(a.fecha)).slice(0,40);
+  html += `<div class="panel"><h2 class="panel-title">Historial de ventas</h2>`;
+  html += recientes.length ? ventasTableHtml(recientes) : `<div class="empty-state">Aún no hay ventas registradas.</div>`;
+  html += `</div>`;
+
+  main.innerHTML = html;
+}
+
+function ventasTableHtml(ventas){
+  const sorted = [...ventas].sort((a,b)=> b.fecha.localeCompare(a.fecha));
+  let html = `<div class="table-wrap"><table><thead><tr>
+    <th>Fecha</th><th>Paciente</th><th>Tratamiento(s)</th><th>Método de pago</th><th class="num">Monto</th><th></th>
+  </tr></thead><tbody>`;
+  sorted.forEach(v=>{
+    const paciente = byId(db.pacientes, v.pacienteId);
+    const nombres = v.tratamientos.map(l=>{ const t=byId(db.tratamientos,l.tratamientoId); return t?t.nombre:'(eliminado)'; }).join(', ');
+    html += `<tr>
+      <td>${escapeHtml(v.fecha)}</td>
+      <td>${escapeHtml(paciente?paciente.nombre:'(paciente eliminado)')}</td>
+      <td>${escapeHtml(nombres)}</td>
+      <td>${escapeHtml(v.metodoPago)}</td>
+      <td class="num">${formatCLP(v.montoTotal)}</td>
+      <td><div class="row-actions"><button class="btn btn-danger btn-sm" data-action="venta-delete" data-id="${v.id}">Anular</button></div></td>
+    </tr>`;
+  });
+  html += `</tbody></table></div>`;
+  return html;
+}
+
+/* ============================= MODAL ============================= */
+function openModal(title, bodyHtml, wide){
+  document.getElementById('modal-title').textContent = title;
+  document.getElementById('modal-body').innerHTML = bodyHtml;
+  document.getElementById('modal-box').classList.toggle('wide', !!wide);
+  document.getElementById('modal-overlay').classList.remove('hidden');
+}
+function closeModal(){
+  document.getElementById('modal-overlay').classList.add('hidden');
+  document.getElementById('modal-body').innerHTML = '';
+}
+
+/* ============================= EXPORT / IMPORT ============================= */
+function exportBackup(){
+  const blob = new Blob([JSON.stringify(db, null, 2)], { type:'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const fecha = todayLocalISO();
+  a.href = url;
+  a.download = `fibonacci-clinic-respaldo-${fecha}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function importBackupFile(file){
+  const reader = new FileReader();
+  reader.onload = function(e){
+    try{
+      const parsed = JSON.parse(e.target.result);
+      const def = defaultDB();
+      const requiredKeys = Object.keys(def);
+      const hasShape = requiredKeys.some(k=> k in parsed);
+      if(!hasShape){ throw new Error('El archivo no tiene el formato esperado.'); }
+      if(!confirm('Esto reemplazará todos los datos actuales guardados en este navegador por los del archivo importado. ¿Continuar?')) return;
+      db = parsed;
+      for(const k in def){ if(!(k in db)) db[k] = def[k]; }
+      saveDB();
+      state.view = 'dashboard';
+      render();
+      alert('Respaldo importado correctamente.');
+    }catch(err){
+      alert('No se pudo importar el archivo: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+}
+
+/* ============================= EVENT DELEGATION ============================= */
+document.addEventListener('click', function(e){
+  const el = e.target.closest('[data-action]');
+  if(!el) return;
+  const action = el.dataset.action;
+  const id = el.dataset.id;
+
+  switch(action){
+    case 'nav': state.view = el.dataset.view; render(); break;
+    case 'modal-close': closeModal(); break;
+
+    case 'export-backup': exportBackup(); break;
+    case 'import-backup': document.getElementById('import-file-input').click(); break;
+
+    case 'insumo-new': openInsumoForm(null); break;
+    case 'insumo-edit': openInsumoForm(id); break;
+    case 'insumo-delete': deleteInsumo(id); break;
+    case 'insumo-adjust': openAjusteStockForm(id); break;
+
+    case 'tratamiento-new': openTratamientoForm(null); break;
+    case 'tratamiento-edit': openTratamientoForm(id); break;
+    case 'tratamiento-delete': deleteTratamiento(id); break;
+    case 'tratamiento-sort':
+      state.tratamientosSortDir = state.tratamientosSortDir==='desc'?'asc':'desc';
+      render();
+      break;
+    case 'tratamiento-add-row':
+      document.getElementById('tr-insumos-rows').insertAdjacentHTML('beforeend', tratamientoInsumoRowHtml());
+      updateTratamientoPreview();
+      break;
+    case 'tratamiento-remove-row':
+      el.closest('[data-row="insumo"]').remove();
+      updateTratamientoPreview();
+      break;
+
+    case 'paciente-new': openPacienteForm(null); break;
+    case 'paciente-edit': openPacienteForm(id); break;
+    case 'paciente-delete': deletePaciente(id); break;
+
+    case 'reservas-subview': state.reservasSub = el.dataset.sub; render(); break;
+    case 'reserva-new': openReservaForm(null); break;
+    case 'reserva-edit': openReservaForm(id); break;
+    case 'reserva-delete': deleteReserva(id); break;
+    case 'reserva-registrar-venta': {
+      const r = byId(db.reservas, id);
+      if(r) openVentaForm({ pacienteId:r.pacienteId, tratamientoIds:[r.tratamientoId], fecha:r.fecha, reservaId:r.id });
+      break;
+    }
+    case 'reserva-nuevo-paciente': {
+      const form = el.closest('form');
+      const fd = new FormData(form);
+      state.formDraft = {
+        id: form.dataset.id || null,
+        tratamientoId: fd.get('tratamientoId'),
+        fecha: fd.get('fecha'), hora: fd.get('hora'), estado: fd.get('estado'), notas: fd.get('notas')
+      };
+      closeModal();
+      openPacienteForm(null, 'reserva');
+      break;
+    }
+    case 'agenda-semana-prev': state.agendaSemanaAnchor = addDays(state.agendaSemanaAnchor,-7); render(); break;
+    case 'agenda-semana-next': state.agendaSemanaAnchor = addDays(state.agendaSemanaAnchor,7); render(); break;
+
+    case 'venta-new': openVentaForm(); break;
+    case 'venta-delete': deleteVenta(id); break;
+    case 'venta-add-row':
+      document.getElementById('venta-tratamientos-rows').insertAdjacentHTML('beforeend', ventaTratamientoRowHtml());
+      updateVentaPreview();
+      break;
+    case 'venta-remove-row':
+      el.closest('[data-row="venta-tratamiento"]').remove();
+      updateVentaPreview();
+      break;
+    case 'venta-nuevo-paciente': {
+      const form = el.closest('form');
+      const fd = new FormData(form);
+      state.formDraft = {
+        tratamientoIds: fd.getAll('tratamientoId[]').filter(Boolean),
+        fecha: fd.get('fecha'),
+        reservaId: form.dataset.reservaId || null
+      };
+      closeModal();
+      openPacienteForm(null, 'venta');
+      break;
+    }
+
+    case 'ventas-report-tab': state.ventasReportPeriod = el.dataset.period; state.ventasReportOffset = 0; render(); break;
+    case 'ventas-report-prev': state.ventasReportOffset++; render(); break;
+    case 'ventas-report-next': state.ventasReportOffset = Math.max(0, state.ventasReportOffset-1); render(); break;
+  }
+});
+
+document.addEventListener('change', function(e){
+  if(e.target.matches('[data-action="reserva-set-estado"]')){
+    setReservaEstado(e.target.dataset.id, e.target.value);
+  }
+});
+
+document.addEventListener('submit', function(e){
+  if(e.target.id !== 'modal-form') return;
+  e.preventDefault();
+  const form = e.target;
+  const entity = form.dataset.entity;
+  const id = form.dataset.id || null;
+  if(entity==='insumo') saveInsumoForm(form, id);
+  else if(entity==='ajuste-insumo') saveAjusteStockForm(form, id);
+  else if(entity==='tratamiento') saveTratamientoForm(form, id);
+  else if(entity==='paciente') savePacienteForm(form, id);
+  else if(entity==='reserva') saveReservaForm(form, id);
+  else if(entity==='venta') saveVentaForm(form);
+});
+
+document.getElementById('import-file-input').addEventListener('change', function(e){
+  const file = e.target.files[0];
+  if(file) importBackupFile(file);
+  e.target.value = '';
+});
+
+document.getElementById('modal-overlay').addEventListener('click', function(e){
+  if(e.target.id === 'modal-overlay') closeModal();
+});
+
+/* ============================= INIT ============================= */
+loadDB();
+render();
+
+})();
+</script>
+</body>
+</html>
