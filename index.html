@@ -375,6 +375,7 @@ function uid(){
 function rowToInsumo(r){
   return { id:r.id, nombre:r.nombre, categoria:r.categoria, unidadMedida:r.unidad_medida,
     stockActual:Number(r.stock_actual), stockMinimo:Number(r.stock_minimo), costoUnitario:Number(r.costo_unitario),
+    mermaPorcentaje:Number(r.merma_porcentaje||0),
     proveedor:r.proveedor, creadoEn:r.creado_en, actualizadoEn:r.actualizado_en };
 }
 function rowToMovimiento(r){
@@ -511,6 +512,11 @@ function formatCLP(n){
 }
 function formatNum(n){ return new Intl.NumberFormat('es-CL').format(Number(n)||0); }
 
+function costoRealUnitario(insumo){
+  const merma = Math.min(99, Math.max(0, Number(insumo.mermaPorcentaje) || 0));
+  return Number(insumo.costoUnitario) / (1 - merma/100);
+}
+
 function escapeHtml(str){
   if(str === null || str === undefined) return '';
   return String(str)
@@ -617,10 +623,11 @@ function renderInventario(main){
   }else{
     html += `<div class="table-wrap"><table><thead><tr>
       <th>Nombre</th><th>Categoría</th><th>Unidad</th><th class="num">Stock actual</th><th class="num">Stock mínimo</th>
-      <th class="num">Costo unitario</th><th>Proveedor</th><th></th>
+      <th class="num">Costo unitario</th><th class="num">% Merma</th><th class="num">Costo real</th><th>Proveedor</th><th></th>
     </tr></thead><tbody>`;
     insumos.forEach(i=>{
       const bajo = Number(i.stockActual) < Number(i.stockMinimo);
+      const merma = Number(i.mermaPorcentaje)||0;
       html += `<tr class="${bajo?'row-warning':''}">
         <td>${escapeHtml(i.nombre)} ${bajo? '<span class="badge badge-warning">Stock bajo</span>':''}</td>
         <td>${escapeHtml(i.categoria)}</td>
@@ -628,6 +635,8 @@ function renderInventario(main){
         <td class="num">${formatNum(i.stockActual)}</td>
         <td class="num">${formatNum(i.stockMinimo)}</td>
         <td class="num">${formatCLP(i.costoUnitario)}</td>
+        <td class="num">${merma>0? merma+'%' : '—'}</td>
+        <td class="num">${formatCLP(costoRealUnitario(i))}</td>
         <td>${escapeHtml(i.proveedor)}</td>
         <td><div class="row-actions">
           <button class="btn btn-secondary btn-sm" data-action="insumo-adjust" data-id="${i.id}">Ajustar stock</button>
@@ -671,7 +680,7 @@ function renderInventario(main){
 
 function insumoOptions(selectedId){
   return db.insumos.slice().sort((a,b)=>a.nombre.localeCompare(b.nombre)).map(i=>
-    `<option value="${i.id}" ${i.id===selectedId?'selected':''}>${escapeHtml(i.nombre)} (${escapeHtml(i.unidadMedida)}) — ${formatCLP(i.costoUnitario)}</option>`
+    `<option value="${i.id}" ${i.id===selectedId?'selected':''}>${escapeHtml(i.nombre)} (${escapeHtml(i.unidadMedida)}) — ${formatCLP(costoRealUnitario(i))}${i.mermaPorcentaje>0? ' · incl. '+i.mermaPorcentaje+'% merma' : ''}</option>`
   ).join('');
 }
 
@@ -709,19 +718,36 @@ function openInsumoForm(id){
       <div class="form-row">
         <div class="form-group">
           <label>Costo unitario (CLP)</label>
-          <input type="number" name="costoUnitario" min="0" step="1" required value="${editing?editing.costoUnitario:0}">
+          <input type="number" name="costoUnitario" min="0" step="1" required value="${editing?editing.costoUnitario:0}" id="insumo-costo-unitario">
         </div>
         <div class="form-group">
-          <label>Proveedor</label>
-          <input type="text" name="proveedor" value="${editing?escapeHtml(editing.proveedor):''}">
+          <label>% Merma</label>
+          <input type="number" name="mermaPorcentaje" min="0" max="99" step="0.1" value="${editing?(editing.mermaPorcentaje||0):0}" id="insumo-merma">
+          <p class="hint">Parte del envase que no se alcanza a usar (residuo, quedan pegado, etc.)</p>
         </div>
       </div>
+      <div class="form-group">
+        <label>Proveedor</label>
+        <input type="text" name="proveedor" value="${editing?escapeHtml(editing.proveedor):''}">
+      </div>
+      <div class="preview-box" id="insumo-costo-preview"></div>
       <div class="modal-footer" style="padding:0; margin-top:8px;">
         <button type="button" class="btn btn-secondary" data-action="modal-close">Cancelar</button>
         <button type="submit" class="btn btn-primary">Guardar</button>
       </div>
     </form>`;
   openModal(title, body);
+  updateInsumoCostoPreview();
+  document.getElementById('modal-body').addEventListener('input', updateInsumoCostoPreview);
+}
+
+function updateInsumoCostoPreview(){
+  const costoEl = document.getElementById('insumo-costo-unitario');
+  const mermaEl = document.getElementById('insumo-merma');
+  const previewEl = document.getElementById('insumo-costo-preview');
+  if(!costoEl || !mermaEl || !previewEl) return;
+  const costoReal = costoRealUnitario({ costoUnitario:Number(costoEl.value)||0, mermaPorcentaje:Number(mermaEl.value)||0 });
+  previewEl.innerHTML = `<div class="pv-row total"><span>Costo real por unidad usable</span><span>${formatCLP(costoReal)}</span></div>`;
 }
 
 async function saveInsumoForm(form, id){
@@ -733,6 +759,7 @@ async function saveInsumoForm(form, id){
     stock_actual: Number(fd.get('stockActual')),
     stock_minimo: Number(fd.get('stockMinimo')),
     costo_unitario: Number(fd.get('costoUnitario')),
+    merma_porcentaje: Number(fd.get('mermaPorcentaje')) || 0,
     proveedor: fd.get('proveedor').trim(),
     actualizado_en: new Date().toISOString()
   };
@@ -831,7 +858,7 @@ async function saveAjusteStockForm(form, insumoId){
 function calcTratamientoCosto(insumosUsados){
   return (insumosUsados||[]).reduce((sum, iu)=>{
     const insumo = byId(db.insumos, iu.insumoId);
-    return sum + (insumo ? Number(insumo.costoUnitario) * Number(iu.cantidad) : 0);
+    return sum + (insumo ? costoRealUnitario(insumo) * Number(iu.cantidad) : 0);
   }, 0);
 }
 
@@ -946,7 +973,7 @@ function updateTratamientoPreview(){
     const insumoId = row.querySelector('.tr-insumo-select').value;
     const cant = Number(row.querySelector('.tr-insumo-qty').value) || 0;
     const insumo = byId(db.insumos, insumoId);
-    if(insumo) costo += Number(insumo.costoUnitario) * cant;
+    if(insumo) costo += costoRealUnitario(insumo) * cant;
   });
   const precio = Number(document.getElementById('tr-precio-venta').value) || 0;
   const margen = precio - costo;
@@ -1692,7 +1719,7 @@ async function importBackupFile(file){
     await sb.from('insumos').delete().not('id','is',null);
 
     if(parsed.insumos && parsed.insumos.length){
-      const rows = parsed.insumos.map(i=>({ id:i.id, nombre:i.nombre, categoria:i.categoria, unidad_medida:i.unidadMedida, stock_actual:i.stockActual, stock_minimo:i.stockMinimo, costo_unitario:i.costoUnitario, proveedor:i.proveedor }));
+      const rows = parsed.insumos.map(i=>({ id:i.id, nombre:i.nombre, categoria:i.categoria, unidad_medida:i.unidadMedida, stock_actual:i.stockActual, stock_minimo:i.stockMinimo, costo_unitario:i.costoUnitario, merma_porcentaje:i.mermaPorcentaje||0, proveedor:i.proveedor }));
       const { error } = await sb.from('insumos').insert(rows);
       if(error) throw error;
     }
