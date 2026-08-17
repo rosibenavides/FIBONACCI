@@ -372,6 +372,7 @@ function rowToInsumo(r){
   return { id:r.id, nombre:r.nombre, categoria:r.categoria, unidadMedida:r.unidad_medida,
     stockActual:Number(r.stock_actual), stockMinimo:Number(r.stock_minimo), costoUnitario:Number(r.costo_unitario),
     mermaPorcentaje:Number(r.merma_porcentaje||0),
+    contenidoPorEnvase:Number(r.contenido_por_envase||1),
     proveedor:r.proveedor, creadoEn:r.creado_en, actualizadoEn:r.actualizado_en };
 }
 function rowToMovimiento(r){
@@ -618,16 +619,18 @@ function renderInventario(main){
     html += `<div class="empty-state">No hay insumos registrados todavía.</div>`;
   }else{
     html += `<div class="table-wrap"><table><thead><tr>
-      <th>Nombre</th><th>Categoría</th><th>Unidad</th><th class="num">Stock actual</th><th class="num">Stock mínimo</th>
+      <th>Nombre</th><th>Categoría</th><th>Unidad</th><th class="num">Envase</th><th class="num">Stock actual</th><th class="num">Stock mínimo</th>
       <th class="num">Costo unitario</th><th class="num">% Merma</th><th class="num">Costo real</th><th>Proveedor</th><th></th>
     </tr></thead><tbody>`;
     insumos.forEach(i=>{
       const bajo = Number(i.stockActual) < Number(i.stockMinimo);
       const merma = Number(i.mermaPorcentaje)||0;
+      const contenido = Number(i.contenidoPorEnvase)||1;
       html += `<tr class="${bajo?'row-warning':''}">
         <td>${escapeHtml(i.nombre)} ${bajo? '<span class="badge badge-warning">Stock bajo</span>':''}</td>
         <td>${escapeHtml(i.categoria)}</td>
         <td>${escapeHtml(i.unidadMedida)}</td>
+        <td class="num">${contenido>1? formatNum(contenido)+' '+escapeHtml(i.unidadMedida) : '—'}</td>
         <td class="num">${formatNum(i.stockActual)}</td>
         <td class="num">${formatNum(i.stockMinimo)}</td>
         <td class="num">${formatCLP(i.costoUnitario)}</td>
@@ -698,13 +701,15 @@ function openInsumoForm(id){
         </div>
         <div class="form-group">
           <label>Unidad de medida</label>
-          <input type="text" name="unidadMedida" placeholder="ml, unidad, caja..." required value="${editing?escapeHtml(editing.unidadMedida):''}">
+          <input type="text" name="unidadMedida" placeholder="UI, ml, gramo..." required value="${editing?escapeHtml(editing.unidadMedida):''}" id="insumo-unidad">
+          <p class="hint">La unidad más chica que usan tus tratamientos (ej. UI, ml, gramo) — no el envase completo.</p>
         </div>
       </div>
       <div class="form-row">
         <div class="form-group">
           <label>Stock actual</label>
           <input type="number" name="stockActual" min="0" step="0.01" required value="${editing?editing.stockActual:0}">
+          <p class="hint">En la unidad de medida de arriba (ej. si tienes 2 frascos de 50 UI, son 100 UI).</p>
         </div>
         <div class="form-group">
           <label>Stock mínimo</label>
@@ -713,8 +718,21 @@ function openInsumoForm(id){
       </div>
       <div class="form-row">
         <div class="form-group">
+          <label>Contenido por envase</label>
+          <input type="number" name="contenidoPorEnvase" min="0.01" step="0.01" value="${editing?(editing.contenidoPorEnvase||1):1}" id="insumo-contenido-envase">
+          <p class="hint">Ej. un frasco de toxina botulínica trae 50 UI &rarr; escribe 50.</p>
+        </div>
+        <div class="form-group">
+          <label>Costo del envase (CLP) — opcional</label>
+          <input type="number" min="0" step="1" id="insumo-costo-envase" placeholder="Calcula el costo unitario">
+          <p class="hint">Si lo llenas, calcula solo el costo por ${editing?escapeHtml(editing.unidadMedida||'unidad'):'unidad'} de abajo.</p>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
           <label>Costo unitario (CLP)</label>
           <input type="number" name="costoUnitario" min="0" step="1" required value="${editing?editing.costoUnitario:0}" id="insumo-costo-unitario">
+          <p class="hint">Costo por 1 unidad de medida (ya considerando el envase, si lo usaste arriba).</p>
         </div>
         <div class="form-group">
           <label>% Merma</label>
@@ -734,16 +752,29 @@ function openInsumoForm(id){
     </form>`;
   openModal(title, body);
   updateInsumoCostoPreview();
-  document.getElementById('modal-body').addEventListener('input', updateInsumoCostoPreview);
+  document.getElementById('modal-body').addEventListener('input', handleInsumoFormInput);
+}
+
+function handleInsumoFormInput(e){
+  if(e.target.id === 'insumo-costo-envase' || e.target.id === 'insumo-contenido-envase'){
+    const costoEnvase = Number(document.getElementById('insumo-costo-envase').value);
+    const contenido = Number(document.getElementById('insumo-contenido-envase').value) || 1;
+    if(costoEnvase > 0){
+      document.getElementById('insumo-costo-unitario').value = (costoEnvase / contenido).toFixed(2);
+    }
+  }
+  updateInsumoCostoPreview();
 }
 
 function updateInsumoCostoPreview(){
   const costoEl = document.getElementById('insumo-costo-unitario');
   const mermaEl = document.getElementById('insumo-merma');
+  const unidadEl = document.getElementById('insumo-unidad');
   const previewEl = document.getElementById('insumo-costo-preview');
   if(!costoEl || !mermaEl || !previewEl) return;
   const costoReal = costoRealUnitario({ costoUnitario:Number(costoEl.value)||0, mermaPorcentaje:Number(mermaEl.value)||0 });
-  previewEl.innerHTML = `<div class="pv-row total"><span>Costo real por unidad usable</span><span>${formatCLP(costoReal)}</span></div>`;
+  const unidad = (unidadEl && unidadEl.value.trim()) || 'unidad';
+  previewEl.innerHTML = `<div class="pv-row total"><span>Costo real por ${escapeHtml(unidad)} usable</span><span>${formatCLP(costoReal)}</span></div>`;
 }
 
 async function saveInsumoForm(form, id){
@@ -756,6 +787,7 @@ async function saveInsumoForm(form, id){
     stock_minimo: Number(fd.get('stockMinimo')),
     costo_unitario: Number(fd.get('costoUnitario')),
     merma_porcentaje: Number(fd.get('mermaPorcentaje')) || 0,
+    contenido_por_envase: Number(fd.get('contenidoPorEnvase')) || 1,
     proveedor: fd.get('proveedor').trim(),
     actualizado_en: new Date().toISOString()
   };
@@ -791,21 +823,27 @@ async function deleteInsumo(id){
 function openAjusteStockForm(id){
   const insumo = byId(db.insumos, id);
   if(!insumo) return;
+  const contenido = Number(insumo.contenidoPorEnvase)||1;
+  const envaseHelper = contenido > 1 ? `
+      <div class="form-group">
+        <label>Cantidad de envases (opcional)</label>
+        <input type="number" min="0.01" step="0.01" id="ajuste-envases" placeholder="Ej. 2 frascos">
+        <p class="hint">Este insumo trae ${formatNum(contenido)} ${escapeHtml(insumo.unidadMedida)} por envase — completa esto y calculamos la cantidad de abajo.</p>
+      </div>` : '';
   const body = `
     <form id="modal-form" data-entity="ajuste-insumo" data-id="${insumo.id}">
       <p class="hint" style="margin-top:0;">Stock actual: <strong>${formatNum(insumo.stockActual)} ${escapeHtml(insumo.unidadMedida)}</strong></p>
-      <div class="form-row">
-        <div class="form-group">
-          <label>Tipo de movimiento</label>
-          <select name="tipo">
-            <option value="entrada">Entrada (compra / reposición)</option>
-            <option value="salida">Salida (merma / ajuste)</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label>Cantidad</label>
-          <input type="number" name="cantidad" min="0.01" step="0.01" required>
-        </div>
+      <div class="form-group">
+        <label>Tipo de movimiento</label>
+        <select name="tipo">
+          <option value="entrada">Entrada (compra / reposición)</option>
+          <option value="salida">Salida (merma / ajuste)</option>
+        </select>
+      </div>
+      ${envaseHelper}
+      <div class="form-group">
+        <label>Cantidad (en ${escapeHtml(insumo.unidadMedida)})</label>
+        <input type="number" name="cantidad" min="0.01" step="0.01" required id="ajuste-cantidad">
       </div>
       <div class="form-group">
         <label>Motivo</label>
@@ -821,6 +859,12 @@ function openAjusteStockForm(id){
       </div>
     </form>`;
   openModal('Ajustar stock — ' + insumo.nombre, body);
+  if(contenido > 1){
+    document.getElementById('ajuste-envases').addEventListener('input', function(e){
+      const envases = Number(e.target.value) || 0;
+      document.getElementById('ajuste-cantidad').value = envases > 0 ? (envases * contenido).toFixed(2) : '';
+    });
+  }
 }
 
 async function saveAjusteStockForm(form, insumoId){
@@ -1715,7 +1759,7 @@ async function importBackupFile(file){
     await sb.from('insumos').delete().not('id','is',null);
 
     if(parsed.insumos && parsed.insumos.length){
-      const rows = parsed.insumos.map(i=>({ id:i.id, nombre:i.nombre, categoria:i.categoria, unidad_medida:i.unidadMedida, stock_actual:i.stockActual, stock_minimo:i.stockMinimo, costo_unitario:i.costoUnitario, merma_porcentaje:i.mermaPorcentaje||0, proveedor:i.proveedor }));
+      const rows = parsed.insumos.map(i=>({ id:i.id, nombre:i.nombre, categoria:i.categoria, unidad_medida:i.unidadMedida, stock_actual:i.stockActual, stock_minimo:i.stockMinimo, costo_unitario:i.costoUnitario, merma_porcentaje:i.mermaPorcentaje||0, contenido_por_envase:i.contenidoPorEnvase||1, proveedor:i.proveedor }));
       const { error } = await sb.from('insumos').insert(rows);
       if(error) throw error;
     }
