@@ -12,10 +12,14 @@ create table if not exists insumos (
   stock_actual numeric not null default 0,
   stock_minimo numeric not null default 0,
   costo_unitario numeric not null default 0,
+  merma_porcentaje numeric not null default 0,
   proveedor text,
   creado_en timestamptz not null default now(),
   actualizado_en timestamptz not null default now()
 );
+
+-- Si la tabla ya existía de una instalación anterior, agrega la columna nueva.
+alter table insumos add column if not exists merma_porcentaje numeric not null default 0;
 
 create table if not exists movimientos_inventario (
   id uuid primary key default gen_random_uuid(),
