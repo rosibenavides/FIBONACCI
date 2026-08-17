@@ -113,3 +113,23 @@ begin
     );
   end loop;
 end $$;
+
+-- ============================= TIEMPO REAL =============================
+-- Permite que la app reciba cambios en vivo (multi-dispositivo) vía Supabase Realtime.
+do $$
+declare
+  t text;
+begin
+  for t in select unnest(array[
+    'insumos','movimientos_inventario','tratamientos','tratamiento_insumos',
+    'pacientes','reservas','ventas','venta_tratamientos'
+  ])
+  loop
+    if not exists (
+      select 1 from pg_publication_tables
+      where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = t
+    ) then
+      execute format('alter publication supabase_realtime add table %I;', t);
+    end if;
+  end loop;
+end $$;
