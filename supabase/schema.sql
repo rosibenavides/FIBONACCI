@@ -9,6 +9,7 @@ create table if not exists insumos (
   nombre text not null,
   categoria text,
   unidad_medida text not null,
+  unidad_dosis text,
   stock_actual numeric not null default 0,
   stock_minimo numeric not null default 0,
   costo_unitario numeric not null default 0,
@@ -22,6 +23,11 @@ create table if not exists insumos (
 -- Si la tabla ya existía de una instalación anterior, agrega las columnas nuevas.
 alter table insumos add column if not exists merma_porcentaje numeric not null default 0;
 alter table insumos add column if not exists contenido_por_envase numeric not null default 1;
+alter table insumos add column if not exists unidad_dosis text;
+
+-- unidad_medida = unidad de COMPRA (frasco, botella, caja...).
+-- unidad_dosis = unidad de USO en tratamientos (UI, ml, unidad...).
+-- contenido_por_envase = cuántas unidad_dosis trae 1 unidad_medida.
 
 create table if not exists movimientos_inventario (
   id uuid primary key default gen_random_uuid(),
