@@ -57,7 +57,10 @@
     background:var(--blanco); border-bottom:1px solid var(--borde);
   }
   .topbar h1{ font-family:var(--font-serif); font-size:22px; margin:0; letter-spacing:.5px; }
+  .topbar-title-row{ display:flex; align-items:center; gap:10px; }
   .topbar-actions{ display:flex; align-items:center; gap:14px; }
+  .hamburger-btn{ display:none; background:none; border:none; font-size:22px; line-height:1; cursor:pointer; color:var(--verde-bosque); padding:2px 4px; flex-shrink:0; }
+  .sidebar-backdrop{ display:none; }
   .sync-status{ display:flex; align-items:center; gap:6px; font-size:11.5px; color:var(--texto-suave); }
   .sync-dot{ width:7px; height:7px; border-radius:50%; background:var(--oliva); flex-shrink:0; }
   .sync-dot.syncing{ background:#c9a24a; animation:pulse 1s infinite ease-in-out; }
@@ -191,6 +194,54 @@
   .text-suave{ color:var(--texto-suave); }
   ::placeholder{ color:#aeb0a8; }
 
+  /* Responsive: teléfonos y pantallas angostas */
+  @media (max-width: 860px){
+    .hamburger-btn{ display:inline-flex; align-items:center; justify-content:center; }
+
+    .sidebar{
+      position:fixed; top:0; left:0; height:100vh; z-index:150; width:82vw; max-width:280px;
+      transform:translateX(-100%); transition:transform .22s ease; box-shadow:4px 0 24px rgba(0,0,0,.3);
+    }
+    .sidebar.open{ transform:translateX(0); }
+    .sidebar-backdrop{
+      display:block; position:fixed; inset:0; background:rgba(20,24,20,.45); z-index:140;
+      opacity:0; pointer-events:none; transition:opacity .22s ease;
+    }
+    .sidebar-backdrop.open{ opacity:1; pointer-events:auto; }
+
+    .topbar{ flex-direction:column; align-items:stretch; gap:10px; padding:12px 16px; }
+    .topbar h1{ font-size:18px; }
+    .topbar-actions{ flex-wrap:wrap; gap:8px; }
+    .topbar-actions .btn{ padding:8px 10px; font-size:12px; flex:1; justify-content:center; }
+    .sync-status{ order:-1; width:100%; }
+
+    .content{ padding:16px 14px 30px; }
+    .panel{ padding:16px 14px; }
+    .panel-header{ flex-direction:column; align-items:stretch; gap:10px; }
+    .panel-header > div{ width:100%; display:flex; flex-wrap:wrap; }
+    .search-input{ max-width:none; flex:1; }
+
+    .form-row{ flex-direction:column; gap:0; }
+    .cards-grid{ grid-template-columns:repeat(2,1fr); gap:12px; }
+
+    .week-grid{ grid-template-columns:1fr; gap:8px; }
+    .week-day{ min-height:auto; }
+
+    .agenda-item{ flex-wrap:wrap; row-gap:8px; }
+    .agenda-actions{ width:100%; flex-wrap:wrap; margin-left:78px; }
+
+    .modal{ max-width:100%; max-height:92vh; }
+    .modal-body{ padding:16px; }
+
+    .dyn-row{ flex-wrap:wrap; }
+  }
+
+  @media (max-width: 480px){
+    .btn-label{ display:none; }
+    .cards-grid{ grid-template-columns:1fr 1fr; }
+    .agenda-actions{ margin-left:0; }
+  }
+
   /* Auth screen */
   .auth-screen{
     position:fixed; inset:0; background:var(--verde-salvia); display:flex; align-items:center; justify-content:center; z-index:200;
@@ -235,7 +286,8 @@
 </div>
 
 <div id="app-shell" class="hidden" style="display:contents;">
-<nav class="sidebar">
+<div class="sidebar-backdrop" id="sidebar-backdrop"></div>
+<nav class="sidebar" id="sidebar">
   <div class="brand">
     <svg width="34" height="34" viewBox="0 0 100 100" fill="none" stroke="#fff" stroke-width="4">
       <path d="M 68 18 A 32 32 0 1 0 68 82 A 21 21 0 1 1 68 40 A 10.5 10.5 0 1 0 68 61"/>
@@ -260,11 +312,14 @@
 
 <div class="main">
   <div class="topbar">
-    <h1 id="view-title">Dashboard</h1>
+    <div class="topbar-title-row">
+      <button class="hamburger-btn" id="hamburger-btn" aria-label="Abrir menú">&#9776;</button>
+      <h1 id="view-title">Dashboard</h1>
+    </div>
     <div class="topbar-actions">
       <div class="sync-status"><span class="sync-dot" id="sync-dot"></span><span id="sync-text">En línea</span></div>
-      <button class="btn btn-secondary" data-action="export-backup">&#128229; Exportar respaldo</button>
-      <button class="btn btn-secondary" data-action="import-backup">&#128228; Importar respaldo</button>
+      <button class="btn btn-secondary" data-action="export-backup">&#128229; <span class="btn-label">Exportar respaldo</span></button>
+      <button class="btn btn-secondary" data-action="import-backup">&#128228; <span class="btn-label">Importar respaldo</span></button>
     </div>
   </div>
   <div class="content" id="main-content"></div>
@@ -1691,7 +1746,7 @@ document.addEventListener('click', async function(e){
   const id = el.dataset.id;
 
   switch(action){
-    case 'nav': state.view = el.dataset.view; render(); break;
+    case 'nav': state.view = el.dataset.view; render(); closeSidebar(); break;
     case 'modal-close': closeModal(); break;
     case 'logout': unsubscribeRealtime(); await sb.auth.signOut(); break;
 
@@ -1805,6 +1860,18 @@ document.getElementById('import-file-input').addEventListener('change', async fu
 document.getElementById('modal-overlay').addEventListener('click', function(e){
   if(e.target.id === 'modal-overlay') closeModal();
 });
+
+/* ============================= MENÚ MÓVIL ============================= */
+function openSidebar(){
+  document.getElementById('sidebar').classList.add('open');
+  document.getElementById('sidebar-backdrop').classList.add('open');
+}
+function closeSidebar(){
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebar-backdrop').classList.remove('open');
+}
+document.getElementById('hamburger-btn').addEventListener('click', openSidebar);
+document.getElementById('sidebar-backdrop').addEventListener('click', closeSidebar);
 
 /* ============================= INIT ============================= */
 initAuth();
