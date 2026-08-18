@@ -64,8 +64,20 @@ create table if not exists pacientes (
   telefono text,
   email text,
   notas text,
+  tipo_piel text,
+  alergias text,
+  antecedentes_medicos text,
+  consentimiento_firmado boolean not null default false,
+  consentimiento_fecha date,
   creado_en timestamptz not null default now()
 );
+
+-- Si la tabla ya existía de una instalación anterior, agrega las columnas clínicas nuevas.
+alter table pacientes add column if not exists tipo_piel text;
+alter table pacientes add column if not exists alergias text;
+alter table pacientes add column if not exists antecedentes_medicos text;
+alter table pacientes add column if not exists consentimiento_firmado boolean not null default false;
+alter table pacientes add column if not exists consentimiento_fecha date;
 
 -- ============================= RESERVAS =============================
 create table if not exists reservas (

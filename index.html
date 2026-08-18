@@ -303,6 +303,8 @@
     <li class="nav-item" data-action="nav" data-view="tratamientos"><span class="nav-icon">&#128138;</span> Tratamientos</li>
     <li class="nav-item" data-action="nav" data-view="ventas"><span class="nav-icon">&#128176;</span> Ventas</li>
     <li class="nav-item" data-action="nav" data-view="reservas"><span class="nav-icon">&#128197;</span> Reservas</li>
+    <li class="nav-item" data-action="nav" data-view="pacientes"><span class="nav-icon">&#128100;</span> Pacientes</li>
+    <li class="nav-item" data-action="nav" data-view="informes"><span class="nav-icon">&#128202;</span> Informes</li>
   </ul>
   <div class="sidebar-footer">
     <span class="sf-email" id="sidebar-user-email"></span>
@@ -389,7 +391,10 @@ function rowToTratamientoBase(r){
     precioVenta:Number(r.precio_venta), activo:r.activo, insumosUsados:[] };
 }
 function rowToPaciente(r){
-  return { id:r.id, nombre:r.nombre, telefono:r.telefono, email:r.email, notas:r.notas, creadoEn:r.creado_en };
+  return { id:r.id, nombre:r.nombre, telefono:r.telefono, email:r.email, notas:r.notas,
+    alergias:r.alergias, tipoPiel:r.tipo_piel, antecedentesMedicos:r.antecedentes_medicos,
+    consentimientoFirmado:!!r.consentimiento_firmado, consentimientoFecha:r.consentimiento_fecha,
+    creadoEn:r.creado_en };
 }
 function rowToReserva(r){
   return { id:r.id, pacienteId:r.paciente_id, tratamientoId:r.tratamiento_id, fecha:r.fecha,
@@ -558,8 +563,12 @@ const state = {
   agendaDiaFecha: todayLocalISO(),
   agendaSemanaAnchor: startOfWeek(new Date()),
   pacientesSearch: '',
+  pacienteDetailId: null,
   ventasReportPeriod: 'semana',
   ventasReportOffset: 0,
+  informesSub: 'ventas',
+  informesPeriod: 'mes',
+  informesOffset: 0,
   formDraft: null,        // datos temporales al abrir un sub-modal (nuevo paciente) desde otro form
   returnAfterSave: null    // 'reserva' | 'venta'
 };
@@ -569,7 +578,7 @@ function render(){
   document.querySelectorAll('.nav-item').forEach(el=>{
     el.classList.toggle('active', el.dataset.view === state.view);
   });
-  const titles = { dashboard:'Dashboard', inventario:'Inventario de insumos', tratamientos:'Costo de tratamientos', ventas:'Ventas', reservas:'Reserva de pacientes' };
+  const titles = { dashboard:'Dashboard', inventario:'Inventario de insumos', tratamientos:'Costo de tratamientos', ventas:'Ventas', reservas:'Reserva de pacientes', pacientes:'Pacientes', informes:'Informes' };
   document.getElementById('view-title').textContent = titles[state.view] || '';
   const main = document.getElementById('main-content');
   main.innerHTML = '';
@@ -578,6 +587,8 @@ function render(){
   else if(state.view==='tratamientos') renderTratamientos(main);
   else if(state.view==='ventas') renderVentas(main);
   else if(state.view==='reservas') renderReservas(main);
+  else if(state.view==='pacientes') renderPacientes(main);
+  else if(state.view==='informes') renderInformes(main);
 }
 
 /* ============================= DASHBOARD ============================= */
@@ -1112,6 +1123,32 @@ function openPacienteForm(id, returnAfterSave){
           <input type="text" name="email" value="${editing?escapeHtml(editing.email):''}">
         </div>
       </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Tipo de piel</label>
+          <input type="text" name="tipoPiel" placeholder="Seca, mixta, grasa, sensible..." value="${editing?escapeHtml(editing.tipoPiel||''):''}">
+        </div>
+        <div class="form-group">
+          <label>Alergias</label>
+          <input type="text" name="alergias" placeholder="Ej. lidocaína, látex..." value="${editing?escapeHtml(editing.alergias||''):''}">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Antecedentes médicos relevantes</label>
+        <textarea name="antecedentesMedicos" placeholder="Condiciones, medicamentos, embarazo, etc.">${editing?escapeHtml(editing.antecedentesMedicos||''):''}</textarea>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label style="display:flex; align-items:center; gap:6px; text-transform:none; font-size:13.5px;">
+            <input type="checkbox" name="consentimientoFirmado" style="width:auto;" id="paciente-consentimiento" ${editing&&editing.consentimientoFirmado?'checked':''}>
+            Consentimiento informado firmado
+          </label>
+        </div>
+        <div class="form-group">
+          <label>Fecha de firma</label>
+          <input type="date" name="consentimientoFecha" value="${editing&&editing.consentimientoFecha?editing.consentimientoFecha:''}">
+        </div>
+      </div>
       <div class="form-group">
         <label>Notas</label>
         <textarea name="notas">${editing?escapeHtml(editing.notas||''):''}</textarea>
@@ -1130,7 +1167,12 @@ async function savePacienteForm(form, id){
     nombre: fd.get('nombre').trim(),
     telefono: fd.get('telefono').trim(),
     email: fd.get('email').trim(),
-    notas: fd.get('notas').trim()
+    notas: fd.get('notas').trim(),
+    tipo_piel: fd.get('tipoPiel').trim(),
+    alergias: fd.get('alergias').trim(),
+    antecedentes_medicos: fd.get('antecedentesMedicos').trim(),
+    consentimiento_firmado: fd.get('consentimientoFirmado') === 'on',
+    consentimiento_fecha: fd.get('consentimientoFecha') || null
   };
   const btn = form.querySelector('button[type=submit]');
   btn.disabled = true; btn.textContent = 'Guardando…';
@@ -1171,6 +1213,7 @@ async function deletePaciente(id){
   try{
     const { error } = await sb.from('pacientes').delete().eq('id', id);
     if(error) throw error;
+    if(state.pacienteDetailId === id) state.pacienteDetailId = null;
     await fetchAll(); render();
   }catch(err){
     alert('No se pudo eliminar el paciente: ' + err.message);
@@ -1207,27 +1250,15 @@ function renderReservas(main){
   let html = `<div class="tabs">
     <div class="tab ${state.reservasSub==='agenda-dia'?'active':''}" data-action="reservas-subview" data-sub="agenda-dia">Agenda del día</div>
     <div class="tab ${state.reservasSub==='agenda-semana'?'active':''}" data-action="reservas-subview" data-sub="agenda-semana">Agenda de la semana</div>
-    <div class="tab ${state.reservasSub==='pacientes'?'active':''}" data-action="reservas-subview" data-sub="pacientes">Pacientes</div>
   </div>`;
 
-  if(state.reservasSub==='agenda-dia'){
-    html += renderAgendaDia();
-  }else if(state.reservasSub==='agenda-semana'){
-    html += renderAgendaSemana();
-  }else{
-    html += renderPacientesTab();
-  }
+  html += state.reservasSub==='agenda-semana' ? renderAgendaSemana() : renderAgendaDia();
 
   main.innerHTML = html;
 
   if(state.reservasSub==='agenda-dia'){
     document.getElementById('agenda-dia-date').addEventListener('change', e=>{
       state.agendaDiaFecha = e.target.value; render();
-    });
-  }
-  if(state.reservasSub==='pacientes'){
-    document.getElementById('pacientes-search').addEventListener('input', e=>{
-      state.pacientesSearch = e.target.value; render();
     });
   }
 }
@@ -1284,7 +1315,19 @@ function renderAgendaSemana(){
   return html;
 }
 
-function renderPacientesTab(){
+function renderPacientes(main){
+  if(state.pacienteDetailId && byId(db.pacientes, state.pacienteDetailId)){
+    main.innerHTML = renderPacienteDetalle(state.pacienteDetailId);
+    return;
+  }
+  state.pacienteDetailId = null;
+  main.innerHTML = renderPacientesList();
+  document.getElementById('pacientes-search').addEventListener('input', e=>{
+    state.pacientesSearch = e.target.value; render();
+  });
+}
+
+function renderPacientesList(){
   const q = state.pacientesSearch.trim().toLowerCase();
   const pacientes = db.pacientes.filter(p=>!q || p.nombre.toLowerCase().includes(q)).sort((a,b)=>a.nombre.localeCompare(b.nombre));
   let html = `<div class="panel">
@@ -1298,17 +1341,89 @@ function renderPacientesTab(){
   if(!pacientes.length){
     html += `<div class="empty-state">No hay pacientes registrados.</div>`;
   }else{
-    html += `<div class="table-wrap"><table><thead><tr><th>Nombre</th><th>Teléfono</th><th>Email</th><th>Notas</th><th></th></tr></thead><tbody>`;
+    html += `<div class="table-wrap"><table><thead><tr><th>Nombre</th><th>Teléfono</th><th>Email</th><th class="num">Visitas</th><th class="num">Total gastado</th><th></th></tr></thead><tbody>`;
     pacientes.forEach(p=>{
+      const ventasPaciente = db.ventas.filter(v=>v.pacienteId===p.id);
+      const totalGastado = ventasPaciente.reduce((s,v)=>s+Number(v.montoTotal),0);
       html += `<tr>
-        <td>${escapeHtml(p.nombre)}</td>
+        <td>${escapeHtml(p.nombre)} ${p.alergias? '<span class="badge badge-warning">Alergias</span>':''}</td>
         <td>${escapeHtml(p.telefono)}</td>
         <td>${escapeHtml(p.email)}</td>
-        <td>${escapeHtml(p.notas)}</td>
+        <td class="num">${ventasPaciente.length}</td>
+        <td class="num">${formatCLP(totalGastado)}</td>
         <td><div class="row-actions">
+          <button class="btn btn-secondary btn-sm" data-action="paciente-ver" data-id="${p.id}">Ver ficha</button>
           <button class="btn btn-secondary btn-sm" data-action="paciente-edit" data-id="${p.id}">Editar</button>
           <button class="btn btn-danger btn-sm" data-action="paciente-delete" data-id="${p.id}">Eliminar</button>
         </div></td>
+      </tr>`;
+    });
+    html += `</tbody></table></div>`;
+  }
+  html += `</div>`;
+  return html;
+}
+
+function renderPacienteDetalle(id){
+  const p = byId(db.pacientes, id);
+  const ventas = db.ventas.filter(v=>v.pacienteId===id).sort((a,b)=> b.fecha.localeCompare(a.fecha));
+  const reservas = db.reservas.filter(r=>r.pacienteId===id).sort((a,b)=> b.fecha.localeCompare(a.fecha) || b.hora.localeCompare(a.hora));
+  const totalGastado = ventas.reduce((s,v)=>s+Number(v.montoTotal),0);
+
+  let html = `<button class="btn btn-secondary btn-sm" data-action="paciente-volver" style="margin-bottom:16px;">&larr; Volver a Pacientes</button>`;
+
+  if(p.alergias){
+    html += `<div class="alert"><strong>&#9888; Alergias:</strong> ${escapeHtml(p.alergias)}</div>`;
+  }
+
+  html += `<div class="panel">
+    <div class="panel-header">
+      <h2 class="panel-title">${escapeHtml(p.nombre)}</h2>
+      <div class="row-actions">
+        <button class="btn btn-secondary btn-sm" data-action="paciente-edit" data-id="${p.id}">Editar ficha</button>
+        <button class="btn btn-danger btn-sm" data-action="paciente-delete" data-id="${p.id}">Eliminar</button>
+      </div>
+    </div>
+    <div class="cards-grid" style="margin-bottom:0;">
+      <div class="card"><div class="card-label">Teléfono</div><div>${escapeHtml(p.telefono)||'—'}</div></div>
+      <div class="card"><div class="card-label">Email</div><div>${escapeHtml(p.email)||'—'}</div></div>
+      <div class="card"><div class="card-label">Visitas</div><div class="card-value" style="font-size:20px;">${ventas.length}</div></div>
+      <div class="card"><div class="card-label">Total gastado</div><div class="card-value" style="font-size:20px;">${formatCLP(totalGastado)}</div></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2 class="panel-title">Información clínica</h2>
+    <div class="form-row">
+      <div class="form-group" style="margin-bottom:0;"><label>Tipo de piel</label><p style="margin:0;">${escapeHtml(p.tipoPiel)||'—'}</p></div>
+      <div class="form-group" style="margin-bottom:0;"><label>Consentimiento informado</label><p style="margin:0;">${p.consentimientoFirmado? 'Firmado'+(p.consentimientoFecha? ' el '+escapeHtml(p.consentimientoFecha):'') : 'No firmado'}</p></div>
+    </div>
+    <div class="form-row" style="margin-top:14px;">
+      <div class="form-group" style="margin-bottom:0;"><label>Alergias</label><p style="margin:0;">${escapeHtml(p.alergias)||'—'}</p></div>
+      <div class="form-group" style="margin-bottom:0;"><label>Antecedentes médicos</label><p style="margin:0;">${escapeHtml(p.antecedentesMedicos)||'—'}</p></div>
+    </div>
+    ${p.notas? `<div class="form-group" style="margin-top:14px; margin-bottom:0;"><label>Notas</label><p style="margin:0;">${escapeHtml(p.notas)}</p></div>` : ''}
+  </div>
+
+  <div class="panel">
+    <h2 class="panel-title">Historial de tratamientos</h2>
+    ${ventas.length ? ventasTableHtml(ventas) : '<div class="empty-state">Este paciente no tiene ventas registradas todavía.</div>'}
+  </div>
+
+  <div class="panel">
+    <h2 class="panel-title">Reservas</h2>`;
+  if(!reservas.length){
+    html += `<div class="empty-state">Este paciente no tiene reservas registradas.</div>`;
+  }else{
+    html += `<div class="table-wrap"><table><thead><tr><th>Fecha</th><th>Hora</th><th>Tratamiento</th><th>Estado</th></tr></thead><tbody>`;
+    reservas.forEach(r=>{
+      const t = byId(db.tratamientos, r.tratamientoId);
+      const estadoBadge = { pendiente:'badge-muted', confirmada:'badge-info', atendida:'badge-success', cancelada:'badge-warning' }[r.estado] || 'badge-muted';
+      html += `<tr>
+        <td>${escapeHtml(r.fecha)}</td>
+        <td>${escapeHtml(r.hora)}</td>
+        <td>${escapeHtml(t?t.nombre:'(eliminado)')}</td>
+        <td><span class="badge ${estadoBadge}">${r.estado}</span></td>
       </tr>`;
     });
     html += `</tbody></table></div>`;
@@ -1719,6 +1834,239 @@ function ventasTableHtml(ventas){
   return html;
 }
 
+/* ============================= INFORMES ============================= */
+function ventasEnRango(range){
+  const s = toISODateLocal(range.start), e = toISODateLocal(range.end);
+  return db.ventas.filter(v=> v.fecha>=s && v.fecha<=e);
+}
+function reservasEnRango(range){
+  const s = toISODateLocal(range.start), e = toISODateLocal(range.end);
+  return db.reservas.filter(r=> r.fecha>=s && r.fecha<=e);
+}
+function costoInsumosVenta(venta){
+  return venta.tratamientos.reduce((sum,l)=>{
+    const t = byId(db.tratamientos, l.tratamientoId);
+    return sum + (t ? calcTratamientoCosto(t.insumosUsados) : 0);
+  }, 0);
+}
+
+function renderInformes(main){
+  const subs = [
+    { key:'ventas', label:'Ventas y márgenes' },
+    { key:'tratamientos', label:'Tratamientos' },
+    { key:'insumos', label:'Insumos' },
+    { key:'pacientes', label:'Pacientes' },
+    { key:'agenda', label:'Agenda' }
+  ];
+  let html = `<div class="tabs">${subs.map(s=>`<div class="tab ${state.informesSub===s.key?'active':''}" data-action="informes-subview" data-sub="${s.key}">${s.label}</div>`).join('')}</div>`;
+
+  const range = getReportRange(state.informesPeriod, state.informesOffset);
+  html += `<div class="panel">
+    <div class="panel-header">
+      <div class="tabs" style="border-bottom:none; margin:0;">
+        ${['dia','semana','mes'].map(p=>`<div class="tab ${state.informesPeriod===p?'active':''}" data-action="informes-period-tab" data-period="${p}">${p==='dia'?'Día':p==='semana'?'Semana':'Mes'}</div>`).join('')}
+      </div>
+      <div style="display:flex; align-items:center; gap:10px;">
+        <button class="btn btn-secondary btn-sm" data-action="informes-period-prev">&larr;</button>
+        <strong>${escapeHtml(range.label)}</strong>
+        <button class="btn btn-secondary btn-sm" data-action="informes-period-next" ${state.informesOffset<=0?'disabled':''}>&rarr;</button>
+      </div>
+    </div>
+  </div>`;
+
+  if(state.informesSub==='ventas') html += reportVentasMargenes(range);
+  else if(state.informesSub==='tratamientos') html += reportTratamientosRentables(range);
+  else if(state.informesSub==='insumos') html += reportInsumosGasto(range);
+  else if(state.informesSub==='pacientes') html += reportPacientesRecurrencia(range);
+  else if(state.informesSub==='agenda') html += reportAgendaInasistencia(range);
+
+  main.innerHTML = html;
+}
+
+function reportVentasMargenes(range){
+  const ventas = ventasEnRango(range);
+  const totalVentas = ventas.reduce((s,v)=>s+Number(v.montoTotal),0);
+  const totalCosto = ventas.reduce((s,v)=>s+costoInsumosVenta(v),0);
+  const totalMargen = totalVentas - totalCosto;
+  const margenPct = totalVentas>0 ? (totalMargen/totalVentas*100) : 0;
+  const ticketPromedio = ventas.length ? totalVentas/ventas.length : 0;
+
+  let html = `<div class="cards-grid">
+    <div class="card"><div class="card-label">Ventas</div><div class="card-value">${formatCLP(totalVentas)}</div></div>
+    <div class="card"><div class="card-label">Costo de insumos</div><div class="card-value">${formatCLP(totalCosto)}</div></div>
+    <div class="card"><div class="card-label">Margen</div><div class="card-value ${totalMargen<0?'negative':''}">${formatCLP(totalMargen)}</div></div>
+    <div class="card"><div class="card-label">Margen %</div><div class="card-value">${margenPct.toFixed(1)}%</div></div>
+  </div>
+  <div class="panel">
+    <h2 class="panel-title">Detalle de ventas del período</h2>
+    ${ventas.length ? ventasTableHtml(ventas) : '<div class="empty-state">Sin ventas en este período.</div>'}
+    ${ventas.length ? `<p class="hint" style="margin-top:10px;">Ticket promedio: <strong>${formatCLP(ticketPromedio)}</strong> · ${ventas.length} venta(s)</p>` : ''}
+  </div>`;
+  return html;
+}
+
+function reportTratamientosRentables(range){
+  const ventas = ventasEnRango(range);
+  const map = {};
+  ventas.forEach(v=>{
+    v.tratamientos.forEach(l=>{
+      const t = byId(db.tratamientos, l.tratamientoId);
+      if(!map[l.tratamientoId]) map[l.tratamientoId] = { nombre: t?t.nombre:'(tratamiento eliminado)', cantidad:0, ingreso:0, costo:0 };
+      map[l.tratamientoId].cantidad += 1;
+      map[l.tratamientoId].ingreso += Number(l.precio);
+      map[l.tratamientoId].costo += t ? calcTratamientoCosto(t.insumosUsados) : 0;
+    });
+  });
+  const list = Object.values(map).map(x=>{
+    const margen = x.ingreso - x.costo;
+    const margenPct = x.ingreso>0 ? margen/x.ingreso*100 : 0;
+    return Object.assign({}, x, { margen, margenPct });
+  }).sort((a,b)=> b.margen - a.margen);
+
+  let html = `<div class="panel"><h2 class="panel-title">Tratamientos más rentables del período</h2>`;
+  if(!list.length){
+    html += `<div class="empty-state">Sin ventas en este período.</div>`;
+  }else{
+    html += `<div class="table-wrap"><table><thead><tr>
+      <th></th><th>Tratamiento</th><th class="num">Vendidos</th><th class="num">Ingresos</th><th class="num">Costo insumos</th><th class="num">Margen</th><th class="num">Margen %</th>
+    </tr></thead><tbody>`;
+    list.forEach((x,i)=>{
+      const badge = x.margenPct<0 ? 'badge-warning' : (x.margenPct<30 ? 'badge-muted' : 'badge-success');
+      html += `<tr>
+        <td class="text-suave">${i+1}</td>
+        <td>${escapeHtml(x.nombre)}</td>
+        <td class="num">${formatNum(x.cantidad)}</td>
+        <td class="num">${formatCLP(x.ingreso)}</td>
+        <td class="num">${formatCLP(x.costo)}</td>
+        <td class="num">${formatCLP(x.margen)}</td>
+        <td class="num"><span class="badge ${badge}">${x.margenPct.toFixed(1)}%</span></td>
+      </tr>`;
+    });
+    html += `</tbody></table></div>`;
+  }
+  html += `</div>`;
+  return html;
+}
+
+function reportInsumosGasto(range){
+  const ventas = ventasEnRango(range);
+  const map = {};
+  ventas.forEach(v=>{
+    v.tratamientos.forEach(l=>{
+      const t = byId(db.tratamientos, l.tratamientoId);
+      if(!t) return;
+      (t.insumosUsados||[]).forEach(iu=>{
+        const insumo = byId(db.insumos, iu.insumoId);
+        if(!insumo) return;
+        if(!map[insumo.id]) map[insumo.id] = { nombre:insumo.nombre, unidad:insumo.unidadDosis, cantidad:0, costo:0 };
+        map[insumo.id].cantidad += Number(iu.cantidad);
+        map[insumo.id].costo += costoPorDosis(insumo) * Number(iu.cantidad);
+      });
+    });
+  });
+  const list = Object.values(map).sort((a,b)=> b.costo - a.costo);
+
+  let html = `<div class="panel"><h2 class="panel-title">Insumos de mayor gasto del período</h2>`;
+  if(!list.length){
+    html += `<div class="empty-state">Sin consumo de insumos en este período.</div>`;
+  }else{
+    html += `<div class="table-wrap"><table><thead><tr>
+      <th></th><th>Insumo</th><th class="num">Consumido</th><th class="num">Costo total</th>
+    </tr></thead><tbody>`;
+    list.forEach((x,i)=>{
+      html += `<tr>
+        <td class="text-suave">${i+1}</td>
+        <td>${escapeHtml(x.nombre)}</td>
+        <td class="num">${formatNum(x.cantidad)} ${escapeHtml(x.unidad)}</td>
+        <td class="num">${formatCLP(x.costo)}</td>
+      </tr>`;
+    });
+    html += `</tbody></table></div>`;
+  }
+  html += `</div>`;
+  return html;
+}
+
+function reportPacientesRecurrencia(range){
+  const ventas = ventasEnRango(range);
+  const map = {};
+  ventas.forEach(v=>{
+    if(!v.pacienteId) return;
+    if(!map[v.pacienteId]) map[v.pacienteId] = { cantidad:0, total:0 };
+    map[v.pacienteId].cantidad += 1;
+    map[v.pacienteId].total += Number(v.montoTotal);
+  });
+  const list = Object.keys(map).map(pid=>{
+    const p = byId(db.pacientes, pid);
+    const ultimaVisita = db.ventas.filter(v=>v.pacienteId===pid).reduce((max,v)=> v.fecha>max?v.fecha:max, '');
+    return {
+      nombre: p ? p.nombre : '(paciente eliminado)',
+      cantidad: map[pid].cantidad,
+      total: map[pid].total,
+      ticketPromedio: map[pid].total / map[pid].cantidad,
+      ultimaVisita
+    };
+  }).sort((a,b)=> b.cantidad - a.cantidad || b.total - a.total);
+
+  let html = `<div class="panel"><h2 class="panel-title">Recurrencia de pacientes del período</h2>`;
+  if(!list.length){
+    html += `<div class="empty-state">Sin ventas en este período.</div>`;
+  }else{
+    html += `<div class="table-wrap"><table><thead><tr>
+      <th></th><th>Paciente</th><th class="num">Visitas</th><th class="num">Total gastado</th><th class="num">Ticket promedio</th><th>Última visita</th>
+    </tr></thead><tbody>`;
+    list.forEach((x,i)=>{
+      html += `<tr>
+        <td class="text-suave">${i+1}</td>
+        <td>${escapeHtml(x.nombre)}</td>
+        <td class="num">${formatNum(x.cantidad)}</td>
+        <td class="num">${formatCLP(x.total)}</td>
+        <td class="num">${formatCLP(x.ticketPromedio)}</td>
+        <td>${escapeHtml(x.ultimaVisita)}</td>
+      </tr>`;
+    });
+    html += `</tbody></table></div>`;
+  }
+  html += `</div>`;
+  return html;
+}
+
+function reportAgendaInasistencia(range){
+  const reservas = reservasEnRango(range);
+  const total = reservas.length;
+  const counts = { pendiente:0, confirmada:0, atendida:0, cancelada:0 };
+  reservas.forEach(r=>{ if(counts[r.estado]!==undefined) counts[r.estado]++; });
+  const tasaCancelacion = total>0 ? (counts.cancelada/total*100) : 0;
+  const tasaAtencion = total>0 ? (counts.atendida/total*100) : 0;
+  const colores = { atendida:'var(--oliva)', confirmada:'#7fa0c9', pendiente:'#c9b46a', cancelada:'var(--terracota)' };
+
+  let html = `<div class="cards-grid">
+    <div class="card"><div class="card-label">Reservas del período</div><div class="card-value">${total}</div></div>
+    <div class="card"><div class="card-label">Atendidas</div><div class="card-value">${counts.atendida} <span class="text-suave" style="font-size:14px;">(${tasaAtencion.toFixed(0)}%)</span></div></div>
+    <div class="card"><div class="card-label">Canceladas</div><div class="card-value ${tasaCancelacion>15?'negative':''}">${counts.cancelada} <span class="text-suave" style="font-size:14px;">(${tasaCancelacion.toFixed(0)}%)</span></div></div>
+    <div class="card"><div class="card-label">Pendientes / confirmadas</div><div class="card-value">${counts.pendiente + counts.confirmada}</div></div>
+  </div>`;
+
+  if(total>0){
+    html += `<div class="panel"><h2 class="panel-title">Distribución por estado</h2>
+      <div style="display:flex; height:28px; border-radius:6px; overflow:hidden; border:1px solid var(--borde);">
+        ${['atendida','confirmada','pendiente','cancelada'].map(k=>{
+          const pct = counts[k]/total*100;
+          return pct>0 ? `<div style="width:${pct}%; background:${colores[k]};" title="${k}: ${counts[k]} (${pct.toFixed(0)}%)"></div>` : '';
+        }).join('')}
+      </div>
+      <div style="display:flex; gap:16px; margin-top:10px; font-size:12px; flex-wrap:wrap;">
+        ${['atendida','confirmada','pendiente','cancelada'].map(k=>
+          `<span style="display:flex; align-items:center; gap:5px;"><span style="width:10px; height:10px; border-radius:2px; background:${colores[k]}; display:inline-block;"></span>${k.charAt(0).toUpperCase()+k.slice(1)} (${counts[k]})</span>`
+        ).join('')}
+      </div>
+    </div>`;
+  }else{
+    html += `<div class="panel"><div class="empty-state">Sin reservas en este período.</div></div>`;
+  }
+  return html;
+}
+
 /* ============================= MODAL ============================= */
 function openModal(title, bodyHtml, wide){
   document.getElementById('modal-title').textContent = title;
@@ -1777,7 +2125,9 @@ async function importBackupFile(file){
       if(error) throw error;
     }
     if(parsed.pacientes && parsed.pacientes.length){
-      const rows = parsed.pacientes.map(p=>({ id:p.id, nombre:p.nombre, telefono:p.telefono, email:p.email, notas:p.notas }));
+      const rows = parsed.pacientes.map(p=>({ id:p.id, nombre:p.nombre, telefono:p.telefono, email:p.email, notas:p.notas,
+        tipo_piel:p.tipoPiel, alergias:p.alergias, antecedentes_medicos:p.antecedentesMedicos,
+        consentimiento_firmado:!!p.consentimientoFirmado, consentimiento_fecha:p.consentimientoFecha||null }));
       const { error } = await sb.from('pacientes').insert(rows);
       if(error) throw error;
     }
@@ -1857,6 +2207,8 @@ document.addEventListener('click', async function(e){
     case 'paciente-new': openPacienteForm(null); break;
     case 'paciente-edit': openPacienteForm(id); break;
     case 'paciente-delete': await deletePaciente(id); break;
+    case 'paciente-ver': state.pacienteDetailId = id; render(); break;
+    case 'paciente-volver': state.pacienteDetailId = null; render(); break;
 
     case 'reservas-subview': state.reservasSub = el.dataset.sub; render(); break;
     case 'reserva-new': openReservaForm(null); break;
@@ -1908,6 +2260,11 @@ document.addEventListener('click', async function(e){
     case 'ventas-report-tab': state.ventasReportPeriod = el.dataset.period; state.ventasReportOffset = 0; render(); break;
     case 'ventas-report-prev': state.ventasReportOffset++; render(); break;
     case 'ventas-report-next': state.ventasReportOffset = Math.max(0, state.ventasReportOffset-1); render(); break;
+
+    case 'informes-subview': state.informesSub = el.dataset.sub; render(); break;
+    case 'informes-period-tab': state.informesPeriod = el.dataset.period; state.informesOffset = 0; render(); break;
+    case 'informes-period-prev': state.informesOffset++; render(); break;
+    case 'informes-period-next': state.informesOffset = Math.max(0, state.informesOffset-1); render(); break;
   }
 });
 
