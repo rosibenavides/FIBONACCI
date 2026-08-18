@@ -370,6 +370,7 @@ function uid(){
 /* ---- mapeo fila (snake_case en Supabase) <-> objeto (camelCase en la app) ---- */
 function rowToInsumo(r){
   return { id:r.id, nombre:r.nombre, categoria:r.categoria, unidadMedida:r.unidad_medida,
+    unidadDosis:r.unidad_dosis || r.unidad_medida,
     stockActual:Number(r.stock_actual), stockMinimo:Number(r.stock_minimo), costoUnitario:Number(r.costo_unitario),
     mermaPorcentaje:Number(r.merma_porcentaje||0),
     contenidoPorEnvase:Number(r.contenido_por_envase||1),
@@ -514,6 +515,12 @@ function costoRealUnitario(insumo){
   return Number(insumo.costoUnitario) / (1 - merma/100);
 }
 
+// Costo real por unidad de USO en tratamientos (ej. por UI), no por unidad de compra (ej. por frasco).
+function costoPorDosis(insumo){
+  const contenido = Number(insumo.contenidoPorEnvase) || 1;
+  return costoRealUnitario(insumo) / contenido;
+}
+
 function escapeHtml(str){
   if(str === null || str === undefined) return '';
   return String(str)
@@ -619,8 +626,8 @@ function renderInventario(main){
     html += `<div class="empty-state">No hay insumos registrados todavía.</div>`;
   }else{
     html += `<div class="table-wrap"><table><thead><tr>
-      <th>Nombre</th><th>Categoría</th><th>Unidad</th><th class="num">Envase</th><th class="num">Stock actual</th><th class="num">Stock mínimo</th>
-      <th class="num">Costo unitario</th><th class="num">% Merma</th><th class="num">Costo real</th><th>Proveedor</th><th></th>
+      <th>Nombre</th><th>Categoría</th><th>Unidad de compra</th><th class="num">Contenido</th><th class="num">Stock actual</th><th class="num">Stock mínimo</th>
+      <th class="num">Costo por compra</th><th class="num">% Merma</th><th class="num">Costo por dosis</th><th>Proveedor</th><th></th>
     </tr></thead><tbody>`;
     insumos.forEach(i=>{
       const bajo = Number(i.stockActual) < Number(i.stockMinimo);
@@ -630,12 +637,12 @@ function renderInventario(main){
         <td>${escapeHtml(i.nombre)} ${bajo? '<span class="badge badge-warning">Stock bajo</span>':''}</td>
         <td>${escapeHtml(i.categoria)}</td>
         <td>${escapeHtml(i.unidadMedida)}</td>
-        <td class="num">${contenido>1? formatNum(contenido)+' '+escapeHtml(i.unidadMedida) : '—'}</td>
-        <td class="num">${formatNum(i.stockActual)}</td>
+        <td class="num">${contenido>1? formatNum(contenido)+' '+escapeHtml(i.unidadDosis)+'/'+escapeHtml(i.unidadMedida) : escapeHtml(i.unidadDosis)}</td>
+        <td class="num">${formatNum(i.stockActual)} ${escapeHtml(i.unidadMedida)}</td>
         <td class="num">${formatNum(i.stockMinimo)}</td>
         <td class="num">${formatCLP(i.costoUnitario)}</td>
         <td class="num">${merma>0? merma+'%' : '—'}</td>
-        <td class="num">${formatCLP(costoRealUnitario(i))}</td>
+        <td class="num">${formatCLP(costoPorDosis(i))}/${escapeHtml(i.unidadDosis)}</td>
         <td>${escapeHtml(i.proveedor)}</td>
         <td><div class="row-actions">
           <button class="btn btn-secondary btn-sm" data-action="insumo-adjust" data-id="${i.id}">Ajustar stock</button>
@@ -678,9 +685,11 @@ function renderInventario(main){
 }
 
 function insumoOptions(selectedId){
-  return db.insumos.slice().sort((a,b)=>a.nombre.localeCompare(b.nombre)).map(i=>
-    `<option value="${i.id}" ${i.id===selectedId?'selected':''}>${escapeHtml(i.nombre)} (${escapeHtml(i.unidadMedida)}) — ${formatCLP(costoRealUnitario(i))}${i.mermaPorcentaje>0? ' · incl. '+i.mermaPorcentaje+'% merma' : ''}</option>`
-  ).join('');
+  return db.insumos.slice().sort((a,b)=>a.nombre.localeCompare(b.nombre)).map(i=>{
+    const contenido = Number(i.contenidoPorEnvase)||1;
+    const envaseInfo = contenido>1 ? ` · ${escapeHtml(i.unidadMedida)} de ${formatNum(contenido)} ${escapeHtml(i.unidadDosis)}` : '';
+    return `<option value="${i.id}" ${i.id===selectedId?'selected':''}>${escapeHtml(i.nombre)} (${escapeHtml(i.unidadDosis)}) — ${formatCLP(costoPorDosis(i))}/${escapeHtml(i.unidadDosis)}${envaseInfo}</option>`;
+  }).join('');
 }
 
 function openInsumoForm(id){
@@ -700,16 +709,16 @@ function openInsumoForm(id){
           <select name="categoria">${catOptions}</select>
         </div>
         <div class="form-group">
-          <label>Unidad de medida</label>
-          <input type="text" name="unidadMedida" placeholder="UI, ml, gramo..." required value="${editing?escapeHtml(editing.unidadMedida):''}" id="insumo-unidad">
-          <p class="hint">La unidad más chica que usan tus tratamientos (ej. UI, ml, gramo) — no el envase completo.</p>
+          <label>Unidad de compra</label>
+          <input type="text" name="unidadMedida" placeholder="frasco, botella, caja..." required value="${editing?escapeHtml(editing.unidadMedida):''}" id="insumo-unidad-compra">
+          <p class="hint">En qué unidad la compras y la cuentas en la bodega (ej. frasco, botella, caja).</p>
         </div>
       </div>
       <div class="form-row">
         <div class="form-group">
           <label>Stock actual</label>
           <input type="number" name="stockActual" min="0" step="0.01" required value="${editing?editing.stockActual:0}">
-          <p class="hint">En la unidad de medida de arriba (ej. si tienes 2 frascos de 50 UI, son 100 UI).</p>
+          <p class="hint">En unidades de compra (ej. si tienes 5 botellas, escribe 5).</p>
         </div>
         <div class="form-group">
           <label>Stock mínimo</label>
@@ -718,21 +727,21 @@ function openInsumoForm(id){
       </div>
       <div class="form-row">
         <div class="form-group">
-          <label>Contenido por envase</label>
-          <input type="number" name="contenidoPorEnvase" min="0.01" step="0.01" value="${editing?(editing.contenidoPorEnvase||1):1}" id="insumo-contenido-envase">
-          <p class="hint">Ej. un frasco de toxina botulínica trae 50 UI &rarr; escribe 50.</p>
+          <label>Unidad de uso en tratamientos</label>
+          <input type="text" name="unidadDosis" placeholder="UI, ml, unidad..." required value="${editing?escapeHtml(editing.unidadDosis||editing.unidadMedida):''}" id="insumo-unidad-dosis">
+          <p class="hint">La unidad más chica que vas a usar al armar un tratamiento (ej. "unidades inyectables", ml).</p>
         </div>
         <div class="form-group">
-          <label>Costo del envase (CLP) — opcional</label>
-          <input type="number" min="0" step="1" id="insumo-costo-envase" placeholder="Calcula el costo unitario">
-          <p class="hint">Si lo llenas, calcula solo el costo por ${editing?escapeHtml(editing.unidadMedida||'unidad'):'unidad'} de abajo.</p>
+          <label>Contenido por unidad de compra</label>
+          <input type="number" name="contenidoPorEnvase" min="0.01" step="0.01" value="${editing?(editing.contenidoPorEnvase||1):1}" id="insumo-contenido-envase">
+          <p class="hint">Ej. 1 botella trae 50 unidades inyectables &rarr; escribe 50. Si se usa igual a como se compra, deja 1.</p>
         </div>
       </div>
       <div class="form-row">
         <div class="form-group">
           <label>Costo unitario (CLP)</label>
           <input type="number" name="costoUnitario" min="0" step="1" required value="${editing?editing.costoUnitario:0}" id="insumo-costo-unitario">
-          <p class="hint">Costo por 1 unidad de medida (ya considerando el envase, si lo usaste arriba).</p>
+          <p class="hint">Costo por 1 unidad de compra (ej. el precio de 1 botella completa).</p>
         </div>
         <div class="form-group">
           <label>% Merma</label>
@@ -752,29 +761,29 @@ function openInsumoForm(id){
     </form>`;
   openModal(title, body);
   updateInsumoCostoPreview();
-  document.getElementById('modal-body').addEventListener('input', handleInsumoFormInput);
-}
-
-function handleInsumoFormInput(e){
-  if(e.target.id === 'insumo-costo-envase' || e.target.id === 'insumo-contenido-envase'){
-    const costoEnvase = Number(document.getElementById('insumo-costo-envase').value);
-    const contenido = Number(document.getElementById('insumo-contenido-envase').value) || 1;
-    if(costoEnvase > 0){
-      document.getElementById('insumo-costo-unitario').value = (costoEnvase / contenido).toFixed(2);
-    }
-  }
-  updateInsumoCostoPreview();
+  document.getElementById('modal-body').addEventListener('input', updateInsumoCostoPreview);
 }
 
 function updateInsumoCostoPreview(){
   const costoEl = document.getElementById('insumo-costo-unitario');
   const mermaEl = document.getElementById('insumo-merma');
-  const unidadEl = document.getElementById('insumo-unidad');
+  const compraEl = document.getElementById('insumo-unidad-compra');
+  const dosisEl = document.getElementById('insumo-unidad-dosis');
+  const contenidoEl = document.getElementById('insumo-contenido-envase');
   const previewEl = document.getElementById('insumo-costo-preview');
   if(!costoEl || !mermaEl || !previewEl) return;
-  const costoReal = costoRealUnitario({ costoUnitario:Number(costoEl.value)||0, mermaPorcentaje:Number(mermaEl.value)||0 });
-  const unidad = (unidadEl && unidadEl.value.trim()) || 'unidad';
-  previewEl.innerHTML = `<div class="pv-row total"><span>Costo real por ${escapeHtml(unidad)} usable</span><span>${formatCLP(costoReal)}</span></div>`;
+  const insumoTmp = {
+    costoUnitario:Number(costoEl.value)||0, mermaPorcentaje:Number(mermaEl.value)||0,
+    contenidoPorEnvase:Number(contenidoEl.value)||1
+  };
+  const costoReal = costoRealUnitario(insumoTmp);
+  const costoDosis = costoPorDosis(insumoTmp);
+  const unidadCompra = (compraEl && compraEl.value.trim()) || 'unidad de compra';
+  const unidadDosis = (dosisEl && dosisEl.value.trim()) || unidadCompra;
+  previewEl.innerHTML = `
+    <div class="pv-row"><span>Costo real por ${escapeHtml(unidadCompra)}</span><span>${formatCLP(costoReal)}</span></div>
+    <div class="pv-row total"><span>Costo real por ${escapeHtml(unidadDosis)} (lo que se usa en tratamientos)</span><span>${formatCLP(costoDosis)}</span></div>
+  `;
 }
 
 async function saveInsumoForm(form, id){
@@ -783,6 +792,7 @@ async function saveInsumoForm(form, id){
     nombre: fd.get('nombre').trim(),
     categoria: fd.get('categoria'),
     unidad_medida: fd.get('unidadMedida').trim(),
+    unidad_dosis: fd.get('unidadDosis').trim(),
     stock_actual: Number(fd.get('stockActual')),
     stock_minimo: Number(fd.get('stockMinimo')),
     costo_unitario: Number(fd.get('costoUnitario')),
@@ -823,27 +833,21 @@ async function deleteInsumo(id){
 function openAjusteStockForm(id){
   const insumo = byId(db.insumos, id);
   if(!insumo) return;
-  const contenido = Number(insumo.contenidoPorEnvase)||1;
-  const envaseHelper = contenido > 1 ? `
-      <div class="form-group">
-        <label>Cantidad de envases (opcional)</label>
-        <input type="number" min="0.01" step="0.01" id="ajuste-envases" placeholder="Ej. 2 frascos">
-        <p class="hint">Este insumo trae ${formatNum(contenido)} ${escapeHtml(insumo.unidadMedida)} por envase — completa esto y calculamos la cantidad de abajo.</p>
-      </div>` : '';
   const body = `
     <form id="modal-form" data-entity="ajuste-insumo" data-id="${insumo.id}">
       <p class="hint" style="margin-top:0;">Stock actual: <strong>${formatNum(insumo.stockActual)} ${escapeHtml(insumo.unidadMedida)}</strong></p>
-      <div class="form-group">
-        <label>Tipo de movimiento</label>
-        <select name="tipo">
-          <option value="entrada">Entrada (compra / reposición)</option>
-          <option value="salida">Salida (merma / ajuste)</option>
-        </select>
-      </div>
-      ${envaseHelper}
-      <div class="form-group">
-        <label>Cantidad (en ${escapeHtml(insumo.unidadMedida)})</label>
-        <input type="number" name="cantidad" min="0.01" step="0.01" required id="ajuste-cantidad">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Tipo de movimiento</label>
+          <select name="tipo">
+            <option value="entrada">Entrada (compra / reposición)</option>
+            <option value="salida">Salida (merma / ajuste)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Cantidad (en ${escapeHtml(insumo.unidadMedida)})</label>
+          <input type="number" name="cantidad" min="0.01" step="0.01" required id="ajuste-cantidad">
+        </div>
       </div>
       <div class="form-group">
         <label>Motivo</label>
@@ -859,12 +863,6 @@ function openAjusteStockForm(id){
       </div>
     </form>`;
   openModal('Ajustar stock — ' + insumo.nombre, body);
-  if(contenido > 1){
-    document.getElementById('ajuste-envases').addEventListener('input', function(e){
-      const envases = Number(e.target.value) || 0;
-      document.getElementById('ajuste-cantidad').value = envases > 0 ? (envases * contenido).toFixed(2) : '';
-    });
-  }
 }
 
 async function saveAjusteStockForm(form, insumoId){
@@ -898,7 +896,7 @@ async function saveAjusteStockForm(form, insumoId){
 function calcTratamientoCosto(insumosUsados){
   return (insumosUsados||[]).reduce((sum, iu)=>{
     const insumo = byId(db.insumos, iu.insumoId);
-    return sum + (insumo ? costoRealUnitario(insumo) * Number(iu.cantidad) : 0);
+    return sum + (insumo ? costoPorDosis(insumo) * Number(iu.cantidad) : 0);
   }, 0);
 }
 
@@ -987,6 +985,7 @@ function openTratamientoForm(id){
       </div>
       <div class="form-group">
         <label>Insumos utilizados</label>
+        <p class="hint" style="margin-top:-2px; margin-bottom:6px;">La cantidad se ingresa en la unidad de uso del insumo (la que aparece entre paréntesis en cada opción), no en la unidad de compra.</p>
         <div id="tr-insumos-rows">${rows}</div>
         <button type="button" class="btn btn-secondary btn-sm dyn-add" data-action="tratamiento-add-row">+ Agregar insumo</button>
       </div>
@@ -1013,7 +1012,7 @@ function updateTratamientoPreview(){
     const insumoId = row.querySelector('.tr-insumo-select').value;
     const cant = Number(row.querySelector('.tr-insumo-qty').value) || 0;
     const insumo = byId(db.insumos, insumoId);
-    if(insumo) costo += costoRealUnitario(insumo) * cant;
+    if(insumo) costo += costoPorDosis(insumo) * cant;
   });
   const precio = Number(document.getElementById('tr-precio-venta').value) || 0;
   const margen = precio - costo;
@@ -1544,12 +1543,15 @@ async function saveVentaForm(form){
       for(const iu of (t.insumosUsados||[])){
         const insumo = byId(db.insumos, iu.insumoId);
         if(!insumo) continue;
-        const nuevoStock = Number(insumo.stockActual) - Number(iu.cantidad);
+        const contenido = Number(insumo.contenidoPorEnvase)||1;
+        const dosis = Number(iu.cantidad);
+        const cantidadCompra = dosis / contenido;
+        const nuevoStock = Number(insumo.stockActual) - cantidadCompra;
         const { error: updErr } = await sb.from('insumos').update({ stock_actual: nuevoStock }).eq('id', insumo.id);
         if(updErr) throw updErr;
         const { error: movErr } = await sb.from('movimientos_inventario').insert({
-          insumo_id: insumo.id, tipo:'salida', cantidad:Number(iu.cantidad),
-          motivo: 'Venta — ' + t.nombre, referencia_id: ventaId, fecha
+          insumo_id: insumo.id, tipo:'salida', cantidad:cantidadCompra,
+          motivo: `Venta — ${t.nombre} (${formatNum(dosis)} ${insumo.unidadDosis})`, referencia_id: ventaId, fecha
         });
         if(movErr) throw movErr;
         insumo.stockActual = nuevoStock;
@@ -1575,12 +1577,15 @@ async function deleteVenta(id){
       for(const iu of (t.insumosUsados||[])){
         const insumo = byId(db.insumos, iu.insumoId);
         if(!insumo) continue;
-        const nuevoStock = Number(insumo.stockActual) + Number(iu.cantidad);
+        const contenido = Number(insumo.contenidoPorEnvase)||1;
+        const dosis = Number(iu.cantidad);
+        const cantidadCompra = dosis / contenido;
+        const nuevoStock = Number(insumo.stockActual) + cantidadCompra;
         const { error: updErr } = await sb.from('insumos').update({ stock_actual: nuevoStock }).eq('id', insumo.id);
         if(updErr) throw updErr;
         const { error: movErr } = await sb.from('movimientos_inventario').insert({
-          insumo_id: insumo.id, tipo:'entrada', cantidad:Number(iu.cantidad),
-          motivo: 'Anulación de venta — ' + t.nombre, referencia_id: venta.id, fecha: todayLocalISO()
+          insumo_id: insumo.id, tipo:'entrada', cantidad:cantidadCompra,
+          motivo: `Anulación de venta — ${t.nombre} (${formatNum(dosis)} ${insumo.unidadDosis})`, referencia_id: venta.id, fecha: todayLocalISO()
         });
         if(movErr) throw movErr;
         insumo.stockActual = nuevoStock;
@@ -1759,7 +1764,7 @@ async function importBackupFile(file){
     await sb.from('insumos').delete().not('id','is',null);
 
     if(parsed.insumos && parsed.insumos.length){
-      const rows = parsed.insumos.map(i=>({ id:i.id, nombre:i.nombre, categoria:i.categoria, unidad_medida:i.unidadMedida, stock_actual:i.stockActual, stock_minimo:i.stockMinimo, costo_unitario:i.costoUnitario, merma_porcentaje:i.mermaPorcentaje||0, contenido_por_envase:i.contenidoPorEnvase||1, proveedor:i.proveedor }));
+      const rows = parsed.insumos.map(i=>({ id:i.id, nombre:i.nombre, categoria:i.categoria, unidad_medida:i.unidadMedida, unidad_dosis:i.unidadDosis||i.unidadMedida, stock_actual:i.stockActual, stock_minimo:i.stockMinimo, costo_unitario:i.costoUnitario, merma_porcentaje:i.mermaPorcentaje||0, contenido_por_envase:i.contenidoPorEnvase||1, proveedor:i.proveedor }));
       const { error } = await sb.from('insumos').insert(rows);
       if(error) throw error;
     }
