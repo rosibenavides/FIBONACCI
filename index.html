@@ -147,6 +147,10 @@
   .dyn-row .qty{ max-width:100px; }
   .dyn-remove{ height:38px; }
   .dyn-add{ margin-top:4px; }
+  .dyn-row-cost{
+    height:38px; min-width:88px; display:flex; align-items:center; justify-content:flex-end;
+    font-size:13px; font-weight:700; color:var(--verde-bosque); font-variant-numeric:tabular-nums; flex-shrink:0;
+  }
 
   .preview-box{ background:var(--crema); border:1px dashed var(--borde); border-radius:8px; padding:12px 14px; font-size:13px; margin-top:6px; }
   .preview-box .pv-row{ display:flex; justify-content:space-between; padding:3px 0; }
@@ -954,6 +958,7 @@ function tratamientoInsumoRowHtml(selInsumoId, cantidad){
     <div class="form-group qty">
       <input type="number" name="cantidadInsumo[]" min="0.01" step="0.01" placeholder="Cant." value="${cantidad!==undefined?cantidad:''}" class="tr-insumo-qty">
     </div>
+    <div class="dyn-row-cost" title="Costo de esta línea">$0</div>
     <button type="button" class="btn btn-secondary btn-sm dyn-remove" data-action="tratamiento-remove-row">&times;</button>
   </div>`;
 }
@@ -1012,7 +1017,10 @@ function updateTratamientoPreview(){
     const insumoId = row.querySelector('.tr-insumo-select').value;
     const cant = Number(row.querySelector('.tr-insumo-qty').value) || 0;
     const insumo = byId(db.insumos, insumoId);
-    if(insumo) costo += costoPorDosis(insumo) * cant;
+    const lineaCosto = insumo ? costoPorDosis(insumo) * cant : 0;
+    costo += lineaCosto;
+    const costEl = row.querySelector('.dyn-row-cost');
+    if(costEl) costEl.textContent = formatCLP(lineaCosto);
   });
   const precio = Number(document.getElementById('tr-precio-venta').value) || 0;
   const margen = precio - costo;
