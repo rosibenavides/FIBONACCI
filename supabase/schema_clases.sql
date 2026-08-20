@@ -52,20 +52,40 @@ create table if not exists clases.productos (
 );
 
 -- ============================= PEDIDOS =============================
+-- Un pedido es la cabecera (cliente, fecha, estado); puede tener varios
+-- productos, cada uno como una línea en pedido_items.
 create table if not exists clases.pedidos (
   id uuid primary key default gen_random_uuid(),
   cliente_id uuid references clases.clientes(id) on delete set null,
-  producto_id uuid references clases.productos(id) on delete set null,
-  cantidad numeric not null default 1,
-  precio_unitario numeric not null default 0,
-  subtotal numeric generated always as (cantidad * precio_unitario) stored,
   fecha date not null default current_date,
   estado text not null default 'pendiente' check (estado in ('pendiente','confirmado','en_preparacion','entregado','cancelado')),
   notas text,
   creado_en timestamptz not null default now()
 );
 
+create table if not exists clases.pedido_items (
+  id uuid primary key default gen_random_uuid(),
+  pedido_id uuid not null references clases.pedidos(id) on delete cascade,
+  producto_id uuid references clases.productos(id) on delete set null,
+  cantidad numeric not null default 1,
+  precio_unitario numeric not null default 0,
+  subtotal numeric generated always as (cantidad * precio_unitario) stored
+);
+
 -- ============================= VISTAS =============================
+create or replace view clases.vista_pedidos_totales as
+select
+  p.id as pedido_id,
+  cl.nombre as cliente,
+  p.fecha,
+  p.estado,
+  count(pi.id) as cantidad_items,
+  coalesce(sum(pi.subtotal), 0) as total
+from clases.pedidos p
+left join clases.clientes cl on cl.id = p.cliente_id
+left join clases.pedido_items pi on pi.pedido_id = p.id
+group by p.id, cl.nombre, p.fecha, p.estado
+order by p.fecha desc;
 create or replace view clases.vista_resumen_clases as
 select
   c.id as clase_id,
@@ -93,12 +113,13 @@ alter table clases.ejercicios enable row level security;
 alter table clases.clientes enable row level security;
 alter table clases.productos enable row level security;
 alter table clases.pedidos enable row level security;
+alter table clases.pedido_items enable row level security;
 
 do $$
 declare
   t text;
 begin
-  for t in select unnest(array['clases','ejercicios','clientes','productos','pedidos'])
+  for t in select unnest(array['clases','ejercicios','clientes','productos','pedidos','pedido_items'])
   loop
     execute format('drop policy if exists "acceso_autenticado" on clases.%I;', t);
     execute format(
