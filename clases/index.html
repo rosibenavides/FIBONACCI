@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="es-CL">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Clases — Pedidos</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;1,400&family=Work+Sans:wght@400;500;600;700&display=swap">
+<style>
+  :root{
+    --ink:#2A241E; --ink-soft:#6B6055; --paper:#FFFFFF; --bg:#FBF8F3;
+    --accent:#B5654A; --accent-dark:#94513A; --accent-bg:#FBEDE8;
+    --line:#E7E1D6; --ok-bg:#EEF3EB; --ok:#4C6B44;
+    --font-serif: 'Lora', Georgia, serif; --font-sans: 'Work Sans', system-ui, sans-serif;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ height:100%; }
+  body{ margin:0; font-family:var(--font-sans); color:var(--ink); background:var(--bg); display:flex; min-height:100vh; }
+  a{ color:var(--accent); }
+  .hidden{ display:none !important; }
+  button{ font-family:inherit; cursor:pointer; }
+
+  /* Auth */
+  .auth-screen{ width:100%; min-height:100vh; display:flex; align-items:center; justify-content:center; background:linear-gradient(160deg,#2A241E,#4A3B2D); padding:20px; }
+  .auth-card{ width:100%; max-width:380px; background:var(--paper); border-radius:14px; padding:34px 32px 30px; box-shadow:0 30px 80px rgba(0,0,0,.28); }
+  .auth-title{ font-family:var(--font-serif); font-size:15px; letter-spacing:3px; text-transform:uppercase; color:var(--accent); margin:0 0 4px; }
+  .auth-h1{ font-family:var(--font-serif); font-size:22px; margin:0 0 14px; }
+  .auth-hint{ font-size:12.5px; color:var(--ink-soft); line-height:1.55; margin:0 0 20px; }
+  .auth-error{ background:var(--accent-bg); color:var(--accent-dark); font-size:12.5px; padding:9px 12px; border-radius:6px; margin-bottom:14px; }
+
+  label{ display:block; font-size:12px; font-weight:600; color:var(--ink-soft); margin:12px 0 5px; }
+  input,select,textarea{ width:100%; padding:9px 11px; border:1px solid var(--line); border-radius:7px; font-family:inherit; font-size:14px; color:var(--ink); background:var(--paper); }
+  input:focus,select:focus,textarea:focus{ outline:none; border-color:var(--accent); }
+
+  .btn{ display:inline-flex; align-items:center; gap:6px; justify-content:center; padding:9px 16px; border-radius:7px; border:1px solid var(--line); background:var(--paper); color:var(--ink); font-size:13.5px; font-weight:600; }
+  .btn-primary{ background:var(--accent); color:#fff; border-color:var(--accent); }
+  .btn-primary:hover{ background:var(--accent-dark); }
+  .btn-secondary{ background:var(--paper); }
+  .btn-sm{ padding:6px 11px; font-size:12.5px; }
+  .btn-block{ width:100%; }
+  .btn[disabled]{ opacity:.6; cursor:default; }
+
+  /* Sidebar */
+  .sidebar{ width:220px; flex-shrink:0; background:var(--ink); color:#fff; display:flex; flex-direction:column; padding:26px 0 16px; }
+  .brand{ padding:0 22px 22px; border-bottom:1px solid rgba(255,255,255,.14); margin-bottom:16px; }
+  .brand-title{ font-family:var(--font-serif); font-size:17px; letter-spacing:1px; }
+  .brand-sub{ font-size:10px; letter-spacing:3px; opacity:.75; margin-top:3px; }
+  .nav{ list-style:none; margin:0; padding:0; flex:1; }
+  .nav-item{ padding:11px 22px; font-size:14px; cursor:pointer; color:rgba(255,255,255,.8); border-left:3px solid transparent; }
+  .nav-item:hover{ background:rgba(255,255,255,.06); }
+  .nav-item.active{ background:rgba(255,255,255,.1); border-left-color:var(--accent); color:#fff; font-weight:600; }
+  .sidebar-footer{ padding:14px 22px 0; font-size:11px; color:rgba(255,255,255,.65); border-top:1px solid rgba(255,255,255,.14); margin-top:10px; }
+  .sidebar-footer .sf-email{ display:block; color:#fff; font-weight:600; margin-bottom:8px; word-break:break-all; }
+
+  /* Main */
+  .main{ flex:1; min-width:0; display:flex; flex-direction:column; }
+  .topbar{ display:flex; align-items:center; justify-content:space-between; padding:18px 30px; background:var(--paper); border-bottom:1px solid var(--line); }
+  .topbar h1{ font-family:var(--font-serif); font-size:21px; margin:0; }
+  .content{ flex:1; padding:26px 30px; overflow-y:auto; }
+
+  .panel{ background:var(--paper); border:1px solid var(--line); border-radius:10px; padding:20px 22px; margin-bottom:20px; }
+  .panel-header{ display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; gap:12px; flex-wrap:wrap; }
+  .panel-title{ font-family:var(--font-serif); font-size:16px; margin:0; }
+
+  table{ width:100%; border-collapse:collapse; }
+  th{ text-align:left; font-size:11px; font-weight:600; letter-spacing:.5px; text-transform:uppercase; color:var(--ink-soft); padding:9px 8px; border-bottom:2px solid var(--ink); }
+  td{ padding:11px 8px; font-size:13.5px; border-bottom:1px solid var(--line); }
+  tr.row-click{ cursor:pointer; }
+  tr.row-click:hover td{ background:var(--bg); }
+  .num{ text-align:right; font-variant-numeric:tabular-nums; }
+
+  .badge{ display:inline-block; padding:3px 10px; border-radius:20px; font-size:11px; font-weight:600; }
+  .badge-pendiente{ background:var(--accent-bg); color:var(--accent-dark); }
+  .badge-confirmado{ background:#EAF1F8; color:#3D6088; }
+  .badge-en_preparacion{ background:#FBF3E1; color:#96741C; }
+  .badge-entregado{ background:var(--ok-bg); color:var(--ok); }
+  .badge-cancelado{ background:#F3E9E7; color:#8A5D57; }
+
+  .empty-state{ text-align:center; color:var(--ink-soft); font-size:13.5px; padding:34px 0; }
+
+  /* Modal */
+  .modal-overlay{ position:fixed; inset:0; background:rgba(30,24,18,.5); display:flex; align-items:center; justify-content:center; z-index:50; padding:20px; }
+  .modal-box{ background:var(--paper); border-radius:12px; max-width:640px; width:100%; max-height:88vh; overflow-y:auto; box-shadow:0 30px 80px rgba(0,0,0,.3); }
+  .modal-box.wide{ max-width:820px; }
+  .modal-head{ display:flex; justify-content:space-between; align-items:center; padding:18px 22px; border-bottom:1px solid var(--line); position:sticky; top:0; background:var(--paper); }
+  .modal-head h2{ font-family:var(--font-serif); font-size:17px; margin:0; }
+  .modal-close{ background:none; border:none; font-size:20px; color:var(--ink-soft); line-height:1; }
+  .modal-body{ padding:22px; }
+
+  .field-row{ display:flex; gap:12px; }
+  .field-row > *{ flex:1; }
+
+  .item-line{ display:flex; gap:8px; align-items:flex-end; margin-bottom:8px; }
+  .item-line select{ flex:2; } .item-line input{ flex:1; }
+
+  .invoice-head{ display:flex; justify-content:space-between; align-items:flex-start; padding-bottom:18px; border-bottom:2px solid var(--ink); margin-bottom:18px; }
+  .invoice-total-row{ display:flex; justify-content:space-between; align-items:center; padding-top:12px; border-top:2px solid var(--ink); margin-top:10px; }
+</style>
+</head>
+<body>
+
+<div class="auth-screen" id="auth-screen">
+  <div class="auth-card">
+    <div class="auth-title">Clases</div>
+    <h2 class="auth-h1">Iniciar sesión</h2>
+    <p class="auth-hint">Ingresa con la cuenta creada en Supabase (Authentication → Users) para administrar los pedidos.</p>
+    <div class="auth-error hidden" id="auth-error"></div>
+    <form id="auth-form">
+      <label>Email</label>
+      <input type="email" name="email" required autocomplete="username">
+      <label>Contraseña</label>
+      <input type="password" name="password" required autocomplete="current-password">
+      <button type="submit" class="btn btn-primary btn-block" style="margin-top:18px;" id="auth-submit">Iniciar sesión</button>
+    </form>
+  </div>
+</div>
+
+<div class="hidden" id="app-shell" style="display:flex; width:100%;">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-title">Clases</div>
+      <div class="brand-sub">PEDIDOS</div>
+    </div>
+    <ul class="nav">
+      <li class="nav-item" data-view="pedidos">Pedidos</li>
+      <li class="nav-item" data-view="clientes">Clientes</li>
+      <li class="nav-item" data-view="productos">Productos</li>
+    </ul>
+    <div class="sidebar-footer">
+      <span class="sf-email" id="sf-email"></span>
+      <button class="btn btn-secondary btn-sm" style="width:100%; justify-content:center;" id="btn-logout">Cerrar sesión</button>
+    </div>
+  </aside>
+  <div class="main">
+    <div class="topbar">
+      <h1 id="view-title">Pedidos</h1>
+      <div id="topbar-actions"></div>
+    </div>
+    <div class="content" id="content"></div>
+  </div>
+</div>
+
+<div class="modal-overlay hidden" id="modal-overlay">
+  <div class="modal-box" id="modal-box">
+    <div class="modal-head">
+      <h2 id="modal-title"></h2>
+      <button class="modal-close" id="modal-close">&times;</button>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script>
+(function(){
+
+const SUPABASE_URL = 'https://dxrvuxyjtkczgrlekhuy.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_WvUkWwkFHtoIJYXSgxtEUQ_AN34Pr8k';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { db: { schema: 'clases' } });
+
+const ESTADOS = ['pendiente','confirmado','en_preparacion','entregado','cancelado'];
+const ESTADO_LABEL = { pendiente:'Pendiente', confirmado:'Confirmado', en_preparacion:'En preparación', entregado:'Entregado', cancelado:'Cancelado' };
+
+let state = { view: 'pedidos' };
+let db = { clientes: [], productos: [], pedidos: [], pedidoItems: [] };
+
+function formatCLP(n){ return '$' + Math.round(Number(n)||0).toLocaleString('es-CL'); }
+function escapeHtml(str){
+  if(str===null||str===undefined) return '';
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+function byId(list, id){ return list.find(x=>x.id===id); }
+
+/* ============================= AUTH ============================= */
+function showAuthScreen(){
+  document.getElementById('auth-screen').classList.remove('hidden');
+  document.getElementById('app-shell').classList.add('hidden');
+  document.getElementById('app-shell').style.display = 'none';
+}
+async function enterApp(session){
+  document.getElementById('auth-screen').classList.add('hidden');
+  document.getElementById('app-shell').classList.remove('hidden');
+  document.getElementById('app-shell').style.display = 'flex';
+  document.getElementById('sf-email').textContent = session.user.email;
+  try{
+    await fetchAll();
+    render();
+  }catch(err){
+    document.getElementById('content').innerHTML = `<div class="panel"><p class="auth-error">No se pudo cargar la información: ${escapeHtml(err.message)}. Revisa que el schema "clases" esté expuesto en Project Settings → API → Exposed schemas.</p></div>`;
+  }
+}
+
+document.getElementById('auth-form').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const btn = document.getElementById('auth-submit');
+  const errorBox = document.getElementById('auth-error');
+  errorBox.classList.add('hidden');
+  btn.disabled = true; btn.textContent = 'Ingresando…';
+  const { error } = await sb.auth.signInWithPassword({ email: fd.get('email'), password: fd.get('password') });
+  btn.disabled = false; btn.textContent = 'Iniciar sesión';
+  if(error){
+    errorBox.textContent = error.message === 'Invalid login credentials' ? 'Email o contraseña incorrectos.' : error.message;
+    errorBox.classList.remove('hidden');
+  }
+});
+document.getElementById('btn-logout').addEventListener('click', ()=> sb.auth.signOut());
+
+(async function init(){
+  const { data:{ session } } = await sb.auth.getSession();
+  if(session){ await enterApp(session); } else { showAuthScreen(); }
+  sb.auth.onAuthStateChange((event, session)=>{
+    if(event==='SIGNED_IN' && session){ enterApp(session); }
+    else if(event==='SIGNED_OUT'){ showAuthScreen(); }
+  });
+})();
+
+/* ============================= DATA ============================= */
+async function fetchAll(){
+  const [clientesR, productosR, pedidosR, itemsR] = await Promise.all([
+    sb.from('clientes').select('*').order('nombre'),
+    sb.from('productos').select('*').order('nombre'),
+    sb.from('pedidos').select('*').order('fecha', { ascending:false }),
+    sb.from('pedido_items').select('*'),
+  ]);
+  for(const r of [clientesR, productosR, pedidosR, itemsR]) if(r.error) throw r.error;
+  db.clientes = clientesR.data;
+  db.productos = productosR.data;
+  db.pedidos = pedidosR.data;
+  db.pedidoItems = itemsR.data;
+}
+
+function itemsDePedido(pedidoId){ return db.pedidoItems.filter(i=>i.pedido_id===pedidoId); }
+function totalPedido(pedidoId){ return itemsDePedido(pedidoId).reduce((s,i)=>s+Number(i.subtotal),0); }
+
+/* ============================= NAV / RENDER ============================= */
+document.querySelectorAll('.nav-item').forEach(el=>{
+  el.addEventListener('click', ()=>{ state.view = el.dataset.view; render(); });
+});
+
+const TITLES = { pedidos:'Pedidos', clientes:'Clientes', productos:'Productos' };
+
+function render(){
+  document.querySelectorAll('.nav-item').forEach(el=> el.classList.toggle('active', el.dataset.view===state.view));
+  document.getElementById('view-title').textContent = TITLES[state.view];
+  const content = document.getElementById('content');
+  const actions = document.getElementById('topbar-actions');
+  if(state.view==='pedidos'){ actions.innerHTML = `<button class="btn btn-primary" data-action="nuevo-pedido">+ Nuevo pedido</button>`; content.innerHTML = renderPedidos(); }
+  else if(state.view==='clientes'){ actions.innerHTML = `<button class="btn btn-primary" data-action="nuevo-cliente">+ Nuevo cliente</button>`; content.innerHTML = renderClientes(); }
+  else if(state.view==='productos'){ actions.innerHTML = `<button class="btn btn-primary" data-action="nuevo-producto">+ Nuevo producto</button>`; content.innerHTML = renderProductos(); }
+}
+
+/* ============================= PEDIDOS ============================= */
+function renderPedidos(){
+  if(!db.pedidos.length) return `<div class="panel"><div class="empty-state">Aún no hay pedidos.</div></div>`;
+  let rows = db.pedidos.map(p=>{
+    const cliente = byId(db.clientes, p.cliente_id);
+    const nItems = itemsDePedido(p.id).length;
+    const total = totalPedido(p.id);
+    return `<tr class="row-click" data-action="ver-pedido" data-id="${p.id}">
+      <td>${new Date(p.fecha).toLocaleDateString('es-CL')}</td>
+      <td>${escapeHtml(cliente ? cliente.nombre : '(cliente eliminado)')}</td>
+      <td class="num">${nItems}</td>
+      <td><span class="badge badge-${p.estado}">${ESTADO_LABEL[p.estado]||p.estado}</span></td>
+      <td class="num">${formatCLP(total)}</td>
+    </tr>`;
+  }).join('');
+  return `<div class="panel">
+    <div class="panel-header"><h2 class="panel-title">Todos los pedidos</h2></div>
+    <table><thead><tr><th>Fecha</th><th>Cliente</th><th class="num">Productos</th><th>Estado</th><th class="num">Total</th></tr></thead>
+    <tbody>${rows}</tbody></table>
+  </div>`;
+}
+
+function abrirPedido(id){
+  const p = byId(db.pedidos, id);
+  const cliente = byId(db.clientes, p.cliente_id);
+  const items = itemsDePedido(id);
+  const total = totalPedido(id);
+  const filas = items.map(i=>{
+    const prod = byId(db.productos, i.producto_id);
+    return `<tr>
+      <td>${escapeHtml(prod ? prod.nombre : '(producto eliminado)')}</td>
+      <td class="num">${i.cantidad}</td>
+      <td class="num">${formatCLP(i.precio_unitario)}</td>
+      <td class="num">${formatCLP(i.subtotal)}</td>
+    </tr>`;
+  }).join('');
+
+  const html = `
+    <div class="invoice-head" style="margin-bottom:14px;">
+      <div>
+        <div style="font-size:11px; font-weight:600; letter-spacing:.6px; text-transform:uppercase; color:var(--ink-soft);">Cliente</div>
+        <div style="font-family:var(--font-serif); font-size:16px; font-weight:600; margin-top:2px;">${escapeHtml(cliente ? cliente.nombre : '(cliente eliminado)')}</div>
+        <div style="font-size:12.5px; color:var(--ink-soft); line-height:1.6;">${escapeHtml(cliente && cliente.email || '')}${cliente && cliente.telefono ? '<br>'+escapeHtml(cliente.telefono) : ''}</div>
+      </div>
+      <div style="text-align:right;">
+        <div style="font-size:12px; color:var(--ink-soft);">Fecha</div>
+        <div style="font-weight:600;">${new Date(p.fecha).toLocaleDateString('es-CL')}</div>
+      </div>
+    </div>
+    ${p.notas ? `<p style="font-size:12.5px; color:var(--ink-soft); margin:0 0 14px;"><strong>Notas:</strong> ${escapeHtml(p.notas)}</p>` : ''}
+    <table><thead><tr><th>Producto</th><th class="num">Cant.</th><th class="num">Precio</th><th class="num">Subtotal</th></tr></thead>
+    <tbody>${filas}</tbody></table>
+    <div class="invoice-total-row">
+      <span style="font-family:var(--font-serif); font-size:15px; font-weight:600;">Total</span>
+      <span style="font-family:var(--font-serif); font-size:20px; font-weight:600; color:var(--accent);">${formatCLP(total)}</span>
+    </div>
+    <div class="field-row" style="margin-top:22px; align-items:flex-end;">
+      <div>
+        <label style="margin-top:0;">Estado del pedido</label>
+        <select id="pedido-estado">${ESTADOS.map(e=>`<option value="${e}" ${e===p.estado?'selected':''}>${ESTADO_LABEL[e]}</option>`).join('')}</select>
+      </div>
+      <button class="btn btn-primary" data-action="guardar-estado" data-id="${p.id}">Guardar estado</button>
+    </div>
+  `;
+  openModal(`Pedido — ${new Date(p.fecha).toLocaleDateString('es-CL')}`, html, true);
+}
+
+function formularioNuevoPedido(){
+  const opcionesCliente = db.clientes.map(c=>`<option value="${c.id}">${escapeHtml(c.nombre)}</option>`).join('');
+  const opcionesProducto = db.productos.map(pr=>`<option value="${pr.id}" data-precio="${pr.precio}">${escapeHtml(pr.nombre)} — ${formatCLP(pr.precio)}</option>`).join('');
+  const html = `
+    <form id="form-pedido">
+      <label>Cliente</label>
+      <select name="cliente_id" required>${opcionesCliente}</select>
+      <label>Notas</label>
+      <input type="text" name="notas" placeholder="Retiro en tienda, entrega urgente...">
+      <div style="margin-top:18px; display:flex; justify-content:space-between; align-items:center;">
+        <label style="margin:0;">Productos</label>
+        <button type="button" class="btn btn-secondary btn-sm" id="btn-add-line">+ Agregar línea</button>
+      </div>
+      <div id="pedido-lineas"></div>
+      <button type="submit" class="btn btn-primary btn-block" style="margin-top:18px;">Guardar pedido</button>
+    </form>
+  `;
+  openModal('Nuevo pedido', html, true);
+
+  function nuevaLinea(){
+    const row = document.createElement('div');
+    row.className = 'item-line';
+    row.innerHTML = `
+      <select class="linea-producto">${opcionesProducto}</select>
+      <input type="number" class="linea-cantidad" min="1" step="1" value="1">
+      <button type="button" class="btn btn-secondary btn-sm" data-action="quitar-linea">&times;</button>
+    `;
+    document.getElementById('pedido-lineas').appendChild(row);
+    row.querySelector('[data-action="quitar-linea"]').addEventListener('click', ()=> row.remove());
+  }
+  document.getElementById('btn-add-line').addEventListener('click', nuevaLinea);
+  nuevaLinea();
+
+  document.getElementById('form-pedido').addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const lineas = Array.from(document.querySelectorAll('#pedido-lineas .item-line')).map(row=>{
+      const sel = row.querySelector('.linea-producto');
+      return {
+        producto_id: sel.value,
+        precio_unitario: Number(sel.selectedOptions[0].dataset.precio),
+        cantidad: Number(row.querySelector('.linea-cantidad').value) || 1,
+      };
+    });
+    if(!lineas.length){ alert('Agrega al menos un producto.'); return; }
+    const { data: pedido, error } = await sb.from('pedidos').insert({
+      cliente_id: fd.get('cliente_id'),
+      notas: fd.get('notas') || null,
+    }).select().single();
+    if(error){ alert('Error al guardar el pedido: ' + error.message); return; }
+    const filas = lineas.map(l=> Object.assign({ pedido_id: pedido.id }, l));
+    const { error: itemsErr } = await sb.from('pedido_items').insert(filas);
+    if(itemsErr){ alert('Error al guardar los productos del pedido: ' + itemsErr.message); return; }
+    closeModal();
+    await fetchAll();
+    render();
+  });
+}
+
+/* ============================= CLIENTES ============================= */
+function renderClientes(){
+  if(!db.clientes.length) return `<div class="panel"><div class="empty-state">Aún no hay clientes.</div></div>`;
+  const rows = db.clientes.map(c=>`<tr>
+    <td>${escapeHtml(c.nombre)}</td><td>${escapeHtml(c.email)}</td><td>${escapeHtml(c.telefono)}</td>
+  </tr>`).join('');
+  return `<div class="panel"><table><thead><tr><th>Nombre</th><th>Email</th><th>Teléfono</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+function formularioNuevoCliente(){
+  const html = `<form id="form-cliente">
+    <label>Nombre</label><input type="text" name="nombre" required>
+    <label>Email</label><input type="email" name="email">
+    <label>Teléfono</label><input type="text" name="telefono">
+    <button type="submit" class="btn btn-primary btn-block" style="margin-top:18px;">Guardar</button>
+  </form>`;
+  openModal('Nuevo cliente', html);
+  document.getElementById('form-cliente').addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const { error } = await sb.from('clientes').insert({ nombre: fd.get('nombre'), email: fd.get('email')||null, telefono: fd.get('telefono')||null });
+    if(error){ alert('Error: ' + error.message); return; }
+    closeModal(); await fetchAll(); render();
+  });
+}
+
+/* ============================= PRODUCTOS ============================= */
+function renderProductos(){
+  if(!db.productos.length) return `<div class="panel"><div class="empty-state">Aún no hay productos.</div></div>`;
+  const rows = db.productos.map(p=>`<tr>
+    <td>${escapeHtml(p.nombre)}</td><td>${escapeHtml(p.descripcion)}</td><td class="num">${formatCLP(p.precio)}</td><td class="num">${p.stock}</td>
+  </tr>`).join('');
+  return `<div class="panel"><table><thead><tr><th>Nombre</th><th>Descripción</th><th class="num">Precio</th><th class="num">Stock</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+function formularioNuevoProducto(){
+  const html = `<form id="form-producto">
+    <label>Nombre</label><input type="text" name="nombre" required>
+    <label>Descripción</label><input type="text" name="descripcion">
+    <div class="field-row">
+      <div><label>Precio</label><input type="number" name="precio" min="0" step="1" value="0"></div>
+      <div><label>Stock</label><input type="number" name="stock" min="0" step="1" value="0"></div>
+    </div>
+    <button type="submit" class="btn btn-primary btn-block" style="margin-top:18px;">Guardar</button>
+  </form>`;
+  openModal('Nuevo producto', html);
+  document.getElementById('form-producto').addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const { error } = await sb.from('productos').insert({ nombre: fd.get('nombre'), descripcion: fd.get('descripcion')||null, precio: Number(fd.get('precio'))||0, stock: Number(fd.get('stock'))||0 });
+    if(error){ alert('Error: ' + error.message); return; }
+    closeModal(); await fetchAll(); render();
+  });
+}
+
+/* ============================= MODAL ============================= */
+function openModal(title, bodyHtml, wide){
+  document.getElementById('modal-title').textContent = title;
+  document.getElementById('modal-body').innerHTML = bodyHtml;
+  document.getElementById('modal-box').classList.toggle('wide', !!wide);
+  document.getElementById('modal-overlay').classList.remove('hidden');
+}
+function closeModal(){
+  document.getElementById('modal-overlay').classList.add('hidden');
+  document.getElementById('modal-body').innerHTML = '';
+}
+document.getElementById('modal-close').addEventListener('click', closeModal);
+document.getElementById('modal-overlay').addEventListener('click', (e)=>{ if(e.target.id==='modal-overlay') closeModal(); });
+
+/* ============================= CLICKS DELEGADOS ============================= */
+document.addEventListener('click', async (e)=>{
+  const btn = e.target.closest('[data-action]');
+  if(!btn) return;
+  const action = btn.dataset.action;
+  if(action==='nuevo-pedido') formularioNuevoPedido();
+  else if(action==='nuevo-cliente') formularioNuevoCliente();
+  else if(action==='nuevo-producto') formularioNuevoProducto();
+  else if(action==='ver-pedido') abrirPedido(btn.dataset.id);
+  else if(action==='guardar-estado'){
+    const estado = document.getElementById('pedido-estado').value;
+    const { error } = await sb.from('pedidos').update({ estado }).eq('id', btn.dataset.id);
+    if(error){ alert('Error: ' + error.message); return; }
+    closeModal(); await fetchAll(); render();
+  }
+});
+
+})();
+</script>
+</body>
+</html>
