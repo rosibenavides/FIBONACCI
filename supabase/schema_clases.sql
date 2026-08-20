@@ -51,6 +51,20 @@ create table if not exists clases.productos (
   creado_en timestamptz not null default now()
 );
 
+-- ============================= PEDIDOS =============================
+create table if not exists clases.pedidos (
+  id uuid primary key default gen_random_uuid(),
+  cliente_id uuid references clases.clientes(id) on delete set null,
+  producto_id uuid references clases.productos(id) on delete set null,
+  cantidad numeric not null default 1,
+  precio_unitario numeric not null default 0,
+  subtotal numeric generated always as (cantidad * precio_unitario) stored,
+  fecha date not null default current_date,
+  estado text not null default 'pendiente' check (estado in ('pendiente','confirmado','en_preparacion','entregado','cancelado')),
+  notas text,
+  creado_en timestamptz not null default now()
+);
+
 -- ============================= VISTAS =============================
 create or replace view clases.vista_resumen_clases as
 select
@@ -78,12 +92,13 @@ alter table clases.clases enable row level security;
 alter table clases.ejercicios enable row level security;
 alter table clases.clientes enable row level security;
 alter table clases.productos enable row level security;
+alter table clases.pedidos enable row level security;
 
 do $$
 declare
   t text;
 begin
-  for t in select unnest(array['clases','ejercicios','clientes','productos'])
+  for t in select unnest(array['clases','ejercicios','clientes','productos','pedidos'])
   loop
     execute format('drop policy if exists "acceso_autenticado" on clases.%I;', t);
     execute format(
