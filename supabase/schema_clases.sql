@@ -35,6 +35,16 @@ create table if not exists clientes (
   creado_en timestamptz not null default now()
 );
 
+-- ============================= PRODUCTOS =============================
+create table if not exists productos (
+  id uuid primary key default gen_random_uuid(),
+  nombre text not null,
+  descripcion text,
+  precio numeric not null default 0,
+  stock numeric not null default 0,
+  creado_en timestamptz not null default now()
+);
+
 -- ============================= VISTAS =============================
 create or replace view vista_resumen_clases as
 select
@@ -61,12 +71,13 @@ order by c.fecha desc;
 alter table clases enable row level security;
 alter table ejercicios enable row level security;
 alter table clientes enable row level security;
+alter table productos enable row level security;
 
 do $$
 declare
   t text;
 begin
-  for t in select unnest(array['clases','ejercicios','clientes'])
+  for t in select unnest(array['clases','ejercicios','clientes','productos'])
   loop
     execute format('drop policy if exists "acceso_autenticado" on %I;', t);
     execute format(
