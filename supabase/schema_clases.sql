@@ -86,6 +86,7 @@ left join clases.clientes cl on cl.id = p.cliente_id
 left join clases.pedido_items pi on pi.pedido_id = p.id
 group by p.id, cl.nombre, p.fecha, p.estado
 order by p.fecha desc;
+
 create or replace view clases.vista_resumen_clases as
 select
   c.id as clase_id,
@@ -128,3 +129,16 @@ begin
     );
   end loop;
 end $$;
+
+-- ============================= PERMISOS =============================
+-- Un schema que no sea "public" no hereda los GRANT por defecto de
+-- Supabase: sin esto, PostgREST no puede leer ni escribir nada aunque
+-- la RLS esté bien (falla en silencio, con listas vacías, no con error).
+
+grant usage on schema clases to anon, authenticated, service_role;
+
+grant select, insert, update, delete on all tables in schema clases to authenticated, service_role;
+grant select on all tables in schema clases to anon;
+
+alter default privileges in schema clases grant select, insert, update, delete on tables to authenticated, service_role;
+alter default privileges in schema clases grant select on tables to anon;
